@@ -5,6 +5,156 @@ import WalletVerification from './WalletVerification.jsx';
 import Dashboard from './Dashboard.jsx';
 import { walletExists, getWalletData, clearWalletData } from '../services/storage.jsx';
 import { FaWallet, FaPlus, FaUnlock, FaShieldAlt } from 'react-icons/fa';
+import { styled } from '@stitches/react';
+
+// Apply a global style to ensure dark background extends throughout
+const globalStyles = {
+    'body, html': {
+        backgroundColor: '#121212',
+        margin: 0,
+        padding: 0,
+        minHeight: '100vh',
+        color: '#f0f0f0',
+    }
+};
+
+// Styled components using Stitches
+const AppContainer = styled('div', {
+    backgroundColor: '#121212',
+    color: '#f0f0f0',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    fontFamily: 'Inter, system-ui, sans-serif',
+    width: '680px',
+    position: 'relative', // Add position relative
+    overflow: 'auto', // Ensure overflow is handled properly
+});
+
+const AppHeader = styled('header', {
+    padding: '24px 20px',
+    borderBottom: '1px solid #2a2a2a',
+    textAlign: 'center',
+    backgroundColor: '#121212', // Ensure header has background
+});
+
+const AppContent = styled('main', {
+    flex: 1,
+    padding: '24px 20px',
+    maxWidth: '680px',
+    margin: '0 auto',
+    width: '100%',
+    backgroundColor: '#121212', // Ensure content has background
+});
+
+const AppFooter = styled('footer', {
+    padding: '16px',
+    borderTop: '1px solid #2a2a2a',
+    textAlign: 'center',
+    backgroundColor: '#121212', // Ensure footer has background
+    width: '100%',
+});
+
+const FlexCenter = styled('div', {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+});
+
+const Heading = styled('h1', {
+    fontSize: '24px',
+    fontWeight: '600',
+    margin: 0,
+    background: 'linear-gradient(90deg, #FF8A00 0%, #FF5C00 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+});
+
+const Subtitle = styled('p', {
+    color: '#a0a0a0',
+    fontSize: '14px',
+    marginTop: '8px',
+    marginBottom: 0,
+});
+
+const TabContainer = styled('div', {
+    display: 'flex',
+    marginBottom: '24px',
+    borderRadius: '8px',
+    border: '1px solid #2a2a2a',
+    overflow: 'hidden',
+});
+
+const Tab = styled('div', {
+    flex: 1,
+    padding: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    fontWeight: '500',
+    color: '#a0a0a0',
+
+    '&:hover': {
+        backgroundColor: '#1e1e1e',
+    },
+
+    variants: {
+        active: {
+            true: {
+                backgroundColor: '#1e1e1e',
+                color: '#FF8A00',
+                borderBottom: '2px solid #FF8A00',
+            }
+        }
+    }
+});
+
+const TabContent = styled('div', {
+    backgroundColor: '#1a1a1a',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+    border: '1px solid #2a2a2a',
+});
+
+const Alert = styled('div', {
+    backgroundColor: 'rgba(255, 138, 0, 0.1)',
+    borderRadius: '8px',
+    padding: '16px',
+    marginTop: '24px',
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'flex-start',
+    border: '1px solid rgba(255, 138, 0, 0.2)',
+
+    '& svg': {
+        color: '#FF8A00',
+        flexShrink: 0,
+        marginTop: '2px',
+    }
+});
+
+const AlertTitle = styled('p', {
+    margin: 0,
+    fontWeight: '600',
+    color: '#FF8A00',
+});
+
+const AlertText = styled('p', {
+    fontSize: '14px',
+    margin: '4px 0 0 0',
+    color: '#d0d0d0',
+});
+
+const FooterText = styled('p', {
+    fontSize: '12px',
+    color: '#707070',
+    margin: 0,
+});
 
 function App() {
     const [activeTab, setActiveTab] = useState('connect');
@@ -12,6 +162,25 @@ function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showVerification, setShowVerification] = useState(false);
     const [tempWallet, setTempWallet] = useState(null);
+
+    // Apply global styles
+    useEffect(() => {
+        const styleElement = document.createElement('style');
+        let styleString = '';
+        for (const selector in globalStyles) {
+            styleString += `${selector} {`;
+            for (const prop in globalStyles[selector]) {
+                styleString += `${prop}: ${globalStyles[selector][prop]};`;
+            }
+            styleString += '}';
+        }
+        styleElement.innerHTML = styleString;
+        document.head.appendChild(styleElement);
+
+        return () => {
+            document.head.removeChild(styleElement);
+        };
+    }, []);
 
     // Check if user has a wallet stored
     useEffect(() => {
@@ -57,52 +226,58 @@ function App() {
 
     // If verified and authenticated, show dashboard
     if (isAuthenticated && wallet) {
-        return <Dashboard wallet={wallet} onLogout={handleLogout} />;
+        return (
+            <AppContainer>
+                <Dashboard wallet={wallet} onLogout={handleLogout} />
+            </AppContainer>
+        );
     }
 
     // If in verification step, show verification component
     if (showVerification && tempWallet) {
         return (
-            <WalletVerification
-                wallet={tempWallet}
-                onContinue={handleVerificationConfirmed}
-                onCancel={handleVerificationCancelled}
-            />
+            <AppContainer>
+                <WalletVerification
+                    wallet={tempWallet}
+                    onContinue={handleVerificationConfirmed}
+                    onCancel={handleVerificationCancelled}
+                />
+            </AppContainer>
         );
     }
 
     // Otherwise show connect/create wallet UI
     return (
-        <div className="app-container">
-            <div className="app-header">
-                <div className="flex items-center justify-center">
-                    <FaWallet size={28} color="#037dd6" className="mr-2" />
-                    <h1 className="text-xl font-semibold m-0">Crypto Wallet</h1>
-                </div>
-                <p className="text-secondary text-sm mt-1">
+        <AppContainer>
+            <AppHeader>
+                <FlexCenter css={{ justifyContent: 'center' }}>
+                    <FaWallet size={28} color="#FF8A00" />
+                    <Heading>Crypto Wallet</Heading>
+                </FlexCenter>
+                <Subtitle>
                     Secure, easy-to-use wallet for Ethereum and ERC-20 tokens
-                </p>
-            </div>
-            
-            <div className="app-content">
-                <div className="tabs">
-                    <div 
-                        className={`tab ${activeTab === 'connect' ? 'active' : ''}`}
+                </Subtitle>
+            </AppHeader>
+
+            <AppContent>
+                <TabContainer>
+                    <Tab
+                        active={activeTab === 'connect'}
                         onClick={() => setActiveTab('connect')}
                     >
-                        <FaUnlock className="mr-1" />
+                        <FaUnlock />
                         <span>Connect</span>
-                    </div>
-                    <div 
-                        className={`tab ${activeTab === 'create' ? 'active' : ''}`}
+                    </Tab>
+                    <Tab
+                        active={activeTab === 'create'}
                         onClick={() => setActiveTab('create')}
                     >
-                        <FaPlus className="mr-1" />
+                        <FaPlus />
                         <span>Create</span>
-                    </div>
-                </div>
+                    </Tab>
+                </TabContainer>
 
-                <div className="tab-content">
+                <TabContent>
                     {activeTab === 'connect' && (
                         <WalletConnect onWalletReady={handleWalletConnected} />
                     )}
@@ -110,23 +285,23 @@ function App() {
                     {activeTab === 'create' && (
                         <WalletCreate onWalletReady={handleWalletConnected} />
                     )}
-                </div>
-                
-                <div className="alert alert-primary mt-4">
-                    <FaShieldAlt size={16} />
-                    <div>
-                        <p className="m-0 font-medium">Secure Storage</p>
-                        <p className="text-sm m-0">All wallet data is encrypted and stored locally. Your keys never leave your device.</p>
-                    </div>
-                </div>
-            </div>
+                </TabContent>
 
-            <div className="app-footer">
-                <p className="text-xs text-secondary text-center m-0">
-                    © 2023 Crypto Wallet | v1.0.0
-                </p>
-            </div>
-        </div>
+                <Alert>
+                    <FaShieldAlt size={18} />
+                    <div>
+                        <AlertTitle>Secure Storage</AlertTitle>
+                        <AlertText>All wallet data is encrypted and stored locally. Your keys never leave your device.</AlertText>
+                    </div>
+                </Alert>
+            </AppContent>
+
+            <AppFooter>
+                <FooterText>
+                    © 2025 Crypto Wallet | v1.0.0
+                </FooterText>
+            </AppFooter>
+        </AppContainer>
     );
 }
 

@@ -7,7 +7,244 @@ import {
     hasStoredPassword,
     verifyPassword
 } from '../services/storage.jsx';
-import { FaEye, FaEyeSlash, FaKey, FaLock, FaShieldAlt, FaExclamationTriangle, FaCheck, FaInfoCircle } from 'react-icons/fa';
+import * as Form from '@radix-ui/react-form';
+import * as Dialog from '@radix-ui/react-dialog';
+import * as Progress from '@radix-ui/react-progress';
+import * as Alert from '@radix-ui/react-alert-dialog';
+import { styled } from '@stitches/react';
+import {
+    Eye,
+    EyeOff,
+    Key,
+    Lock,
+    Shield,
+    AlertTriangle,
+    Check,
+    Info
+} from 'lucide-react';
+
+// Styled components with black and orange theme
+const StyledCard = styled('div', {
+    backgroundColor: '#111111',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    color: '#fff',
+    overflow: 'hidden',
+});
+
+const CardHeader = styled('div', {
+    padding: '16px 20px',
+    borderBottom: '1px solid #222',
+    display: 'flex',
+    alignItems: 'center',
+});
+
+const CardTitle = styled('h2', {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: 600,
+});
+
+const CardContent = styled('div', {
+    padding: '20px',
+});
+
+const Button = styled('button', {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '10px 16px',
+    borderRadius: '6px',
+    border: 'none',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    width: '100%',
+    marginTop: '8px',
+
+    '&:disabled': {
+        opacity: 0.6,
+        cursor: 'not-allowed',
+    },
+
+    variants: {
+        variant: {
+            primary: {
+                backgroundColor: '#FF6B00',
+                color: 'white',
+                '&:hover': {
+                    backgroundColor: '#FF8124',
+                    transform: 'translateY(-1px)',
+                },
+            },
+            ghost: {
+                backgroundColor: 'transparent',
+                color: '#666',
+                '&:hover': {
+                    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+                },
+            },
+        },
+    },
+});
+
+const StyledInput = styled('input', {
+    width: '100%',
+    padding: '10px 14px',
+    paddingRight: '40px',
+    backgroundColor: '#1A1A1A',
+    color: 'white',
+    border: '1px solid #333',
+    borderRadius: '6px',
+    fontSize: '14px',
+    transition: 'border-color 0.2s',
+    outline: 'none',
+
+    '&:focus': {
+        borderColor: '#FF6B00',
+        boxShadow: '0 0 0 1px rgba(255, 107, 0, 0.3)',
+    },
+
+    '&::placeholder': {
+        color: '#666',
+    },
+});
+
+const FormGroup = styled('div', {
+    marginBottom: '16px',
+});
+
+const InputWrapper = styled('div', {
+    position: 'relative',
+    width: '100%',
+});
+
+const IconButton = styled('button', {
+    position: 'absolute',
+    right: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#666',
+    padding: '4px',
+    transition: 'color 0.2s',
+
+    '&:hover': {
+        color: '#FF6B00',
+    },
+});
+
+const Label = styled('label', {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    marginBottom: '6px',
+    fontSize: '14px',
+    color: '#CCC',
+});
+
+const HelperText = styled('div', {
+    fontSize: '12px',
+    marginTop: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: '#999',
+});
+
+const ErrorAlert = styled('div', {
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    color: '#ef4444',
+    borderRadius: '6px',
+    padding: '10px 12px',
+    marginBottom: '16px',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+});
+
+const SecurityAlert = styled('div', {
+    backgroundColor: 'rgba(255, 107, 0, 0.1)',
+    color: '#FF6B00',
+    borderRadius: '6px',
+    padding: '12px',
+    marginTop: '16px',
+    fontSize: '14px',
+});
+
+const SecurityTitle = styled('h3', {
+    fontSize: '14px',
+    fontWeight: '600',
+    marginBottom: '4px',
+});
+
+const SecurityText = styled('p', {
+    fontSize: '13px',
+    margin: 0,
+    color: '#CCC',
+});
+
+const Spinner = styled('div', {
+    width: '16px',
+    height: '16px',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '50%',
+    borderTopColor: 'white',
+    animation: 'spin 0.8s linear infinite',
+    marginRight: '8px',
+
+    '@keyframes spin': {
+        to: { transform: 'rotate(360deg)' }
+    }
+});
+
+const StrengthBar = styled(Progress.Root, {
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#333',
+    borderRadius: '99px',
+    width: '100%',
+    height: '4px',
+    marginTop: '6px',
+});
+
+const StrengthIndicator = styled(Progress.Indicator, {
+    backgroundColor: '#FF6B00',
+    width: '100%',
+    height: '100%',
+    transition: 'transform 250ms cubic-bezier(0.65, 0, 0.35, 1)',
+    transform: 'translateX(-100%)',
+
+    variants: {
+        strength: {
+            weak: { backgroundColor: '#ef4444' },
+            medium: { backgroundColor: '#f59e0b' },
+            strong: { backgroundColor: '#10b981' },
+        }
+    }
+});
+
+const StrengthText = styled('span', {
+    fontSize: '12px',
+    fontWeight: 500,
+    marginLeft: 'auto',
+
+    variants: {
+        strength: {
+            weak: { color: '#ef4444' },
+            medium: { color: '#f59e0b' },
+            strong: { color: '#10b981' },
+        }
+    }
+});
 
 function WalletConnect({ onWalletReady }) {
     const [privateKey, setPrivateKey] = useState('');
@@ -55,11 +292,11 @@ function WalletConnect({ onWalletReady }) {
         return 'Strong';
     };
 
-    const getPasswordStrengthColor = () => {
-        if (passwordStrength === 0) return '';
-        if (passwordStrength < 3) return 'text-danger';
-        if (passwordStrength < 5) return 'text-warning';
-        return 'text-success';
+    const getPasswordStrengthVariant = () => {
+        if (passwordStrength === 0) return undefined;
+        if (passwordStrength < 3) return 'weak';
+        if (passwordStrength < 5) return 'medium';
+        return 'strong';
     };
 
     const validateForm = () => {
@@ -158,152 +395,143 @@ function WalletConnect({ onWalletReady }) {
 
     return (
         <div>
-            <div className="card shadow">
-                <div className="card-header">
-                    <div className="flex items-center">
-                        <FaKey className="text-primary mr-2" />
-                        <h2 className="card-title">Connect Your Wallet</h2>
-                    </div>
-                </div>
+            <StyledCard>
+                <CardHeader>
+                    <Key size={18} color="#FF6B00" style={{ marginRight: '8px' }} />
+                    <CardTitle>Connect Your Wallet</CardTitle>
+                </CardHeader>
 
-                {error && (
-                    <div className="alert alert-danger mb-3">
-                        <FaExclamationTriangle />
-                        <span>{error}</span>
-                    </div>
-                )}
+                <CardContent>
+                    {error && (
+                        <ErrorAlert>
+                            <AlertTriangle size={16} />
+                            <span>{error}</span>
+                        </ErrorAlert>
+                    )}
 
-                <form onSubmit={handleConnect}>
-                    <div className="form-group">
-                        <label className="form-label flex items-center">
-                            <FaKey size={14} className="mr-1" />
-                            <span>Private Key</span>
-                        </label>
-                        <div className="relative">
-                            <input
-                                type={showPrivateKey ? "text" : "password"}
-                                id="privateKey"
-                                value={privateKey}
-                                onChange={(e) => setPrivateKey(e.target.value)}
-                                placeholder="Enter your private key"
-                                className="form-control pr-10"
-                                autoComplete="off"
-                            />
-                            <button
-                                type="button"
-                                onClick={togglePrivateKeyVisibility}
-                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-secondary hover:text-primary p-1"
-                            >
-                                {showPrivateKey ? <FaEyeSlash /> : <FaEye />}
-                            </button>
-                        </div>
-                        <div className="form-helper flex items-center mt-1">
-                            <FaInfoCircle size={12} className="mr-1 text-secondary" />
-                            Your private key is used to import your existing wallet
-                        </div>
-                    </div>
+                    <Form.Root onSubmit={handleConnect}>
+                        <FormGroup>
+                            <Label htmlFor="privateKey">
+                                <Key size={14} />
+                                <span>Private Key</span>
+                            </Label>
+                            <InputWrapper>
+                                <StyledInput
+                                    type={showPrivateKey ? "text" : "password"}
+                                    id="privateKey"
+                                    value={privateKey}
+                                    onChange={(e) => setPrivateKey(e.target.value)}
+                                    placeholder="Enter your private key"
+                                    autoComplete="off"
+                                />
+                                <IconButton
+                                    type="button"
+                                    onClick={togglePrivateKeyVisibility}
+                                >
+                                    {showPrivateKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </IconButton>
+                            </InputWrapper>
+                            <HelperText>
+                                <Info size={12} />
+                                Your private key is used to import your existing wallet
+                            </HelperText>
+                        </FormGroup>
 
-                    <div className="form-group">
-                        <label className="form-label flex items-center">
-                            <FaLock size={14} className="mr-1" />
-                            <span>{isNewUser ? 'Create Password' : 'Enter Password'}</span>
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="password"
-                                id="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder={isNewUser ? 'Create a password (min. 8 characters)' : 'Enter your password'}
-                                className="form-control"
-                                required
-                                autoComplete="new-password"
-                            />
-                            {isNewUser && password && (
-                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                    <span className={`text-xs font-medium ${getPasswordStrengthColor()}`}>
-                                        {getPasswordStrengthLabel()}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        {isNewUser && (
-                            <div className="form-helper mt-1">
-                                <div className="flex items-center">
-                                    <FaInfoCircle size={12} className="mr-1 text-secondary" />
-                                    This password will encrypt your wallet data
-                                </div>
-                                {password && isNewUser && (
-                                    <div className="password-strength-bar mt-1 bg-gray-200 rounded-full h-1.5">
-                                        <div 
-                                            className={`h-full rounded-full ${
-                                                passwordStrength < 3 ? 'bg-danger' : 
-                                                passwordStrength < 5 ? 'bg-warning' : 'bg-success'
-                                            }`}
-                                            style={{ width: `${passwordStrength * 20}%` }}
-                                        ></div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {isNewUser && (
-                        <div className="form-group">
-                            <label className="form-label flex items-center">
-                                <FaLock size={14} className="mr-1" />
-                                <span>Confirm Password</span>
-                            </label>
-                            <div className="relative">
-                                <input
+                        <FormGroup>
+                            <Label htmlFor="password">
+                                <Lock size={14} />
+                                <span>{isNewUser ? 'Create Password' : 'Enter Password'}</span>
+                            </Label>
+                            <InputWrapper>
+                                <StyledInput
                                     type="password"
-                                    id="confirmPassword"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Confirm your password"
-                                    className="form-control"
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder={isNewUser ? 'Create a password (min. 8 characters)' : 'Enter your password'}
                                     required
                                     autoComplete="new-password"
                                 />
-                                {confirmPassword && password === confirmPassword && (
-                                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-success">
-                                        <FaCheck size={14} />
-                                    </div>
+                                {isNewUser && password && (
+                                    <StrengthText strength={getPasswordStrengthVariant()}>
+                                        {getPasswordStrengthLabel()}
+                                    </StrengthText>
                                 )}
-                            </div>
-                        </div>
-                    )}
+                            </InputWrapper>
+                            {isNewUser && (
+                                <div>
+                                    <HelperText>
+                                        <Info size={12} />
+                                        This password will encrypt your wallet data
+                                    </HelperText>
+                                    {password && (
+                                        <StrengthBar value={passwordStrength * 20}>
+                                            <StrengthIndicator
+                                                style={{ transform: `translateX(-${100 - passwordStrength * 20}%)` }}
+                                                strength={getPasswordStrengthVariant()}
+                                            />
+                                        </StrengthBar>
+                                    )}
+                                </div>
+                            )}
+                        </FormGroup>
 
-                    <button
-                        type="submit"
-                        className="btn btn-primary btn-full hover-scale"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <>
-                                <div className="spinner mr-2"></div>
-                                <span>Connecting...</span>
-                            </>
-                        ) : (
-                            <>
-                                <FaKey className="mr-1" />
-                                <span>Connect Wallet</span>
-                            </>
+                        {isNewUser && (
+                            <FormGroup>
+                                <Label htmlFor="confirmPassword">
+                                    <Lock size={14} />
+                                    <span>Confirm Password</span>
+                                </Label>
+                                <InputWrapper>
+                                    <StyledInput
+                                        type="password"
+                                        id="confirmPassword"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Confirm your password"
+                                        required
+                                        autoComplete="new-password"
+                                    />
+                                    {confirmPassword && password === confirmPassword && (
+                                        <Check size={16} color="#10b981" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                    )}
+                                </InputWrapper>
+                            </FormGroup>
                         )}
-                    </button>
-                </form>
-            </div>
 
-            <div className="alert alert-primary mt-3">
-                <FaShieldAlt />
-                <div>
-                    <h3 className="text-sm font-semibold mb-1">Security Note</h3>
-                    <p className="text-sm m-0">
-                        Your private key will be encrypted and stored locally in your browser.
-                        Never share your private key with anyone.
-                    </p>
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Spinner />
+                                    <span>Connecting...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Key size={16} />
+                                    <span>Connect Wallet</span>
+                                </>
+                            )}
+                        </Button>
+                    </Form.Root>
+                </CardContent>
+            </StyledCard>
+
+            <SecurityAlert>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <Shield size={18} />
+                    <div>
+                        <SecurityTitle>Security Note</SecurityTitle>
+                        <SecurityText>
+                            Your private key will be encrypted and stored locally in your browser.
+                            Never share your private key with anyone.
+                        </SecurityText>
+                    </div>
                 </div>
-            </div>
+            </SecurityAlert>
         </div>
     );
 }

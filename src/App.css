@@ -230,7 +230,7 @@ body {
   margin-bottom: 16px;
 }
 
-.alert > svg {
+.alert>svg {
   margin-right: 10px;
   flex-shrink: 0;
   margin-top: 3px;
@@ -271,8 +271,13 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Status indicators */
@@ -411,7 +416,6 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  backdrop-filter: blur(4px);
 }
 
 .modal-content {
@@ -432,6 +436,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -460,59 +465,7 @@ body {
   flex: 1;
 }
 
-/* Network selection styles */
-.network-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 
-.network-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.network-item:hover {
-  background-color: var(--hover-color);
-  border-color: var(--accent-color);
-  transform: translateY(-2px);
-}
-
-.network-item.active {
-  background-color: var(--primary-light);
-  border-color: var(--primary-color);
-}
-
-.network-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background-color: var(--primary-light);
-  margin-right: 12px;
-  color: var(--primary-color);
-}
-
-.network-info {
-  flex: 1;
-}
-
-.network-name {
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.network-type {
-  color: var(--text-secondary);
-}
 
 .selected-indicator {
   display: flex;
@@ -674,7 +627,7 @@ body {
     border-radius: 0;
     margin: 0;
   }
-  
+
   .modal-content {
     max-width: 95%;
     max-height: 80vh;
@@ -690,7 +643,8 @@ body {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
-} 
+}

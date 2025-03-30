@@ -1,0 +1,18 @@
+{
+    "manifest_version": 2,
+    "name": "Ethereum Wallet Extension",
+    "version": "1.0.0",
+    "description": "A secure Ethereum wallet browser extension",
+    "icons": {
+        "48": "icon.svg",
+        "128": "icon.svg"
+    },
+    "browser_action": {
+        "default_popup": "index.html",
+        "default_icon": "icon.svg"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+}

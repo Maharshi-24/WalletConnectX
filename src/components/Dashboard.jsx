@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import SendTransaction from './SendTransaction';
 import Settings from './Settings';
+import RequestApproval from './RequestApproval';
+import useExtensionRequests from '../hooks/useExtensionRequests';
 import { CHAINS_CONFIG, ethereum, sepolia, polygon, amoy, dojima } from './interfaces/Chain';
 import {
     Wallet,
@@ -322,80 +324,288 @@ const Container = styled('div', {
     padding: '$4',
 });
 
-function Dashboard({ wallet, onLogout }) {
-    const [balance, setBalance] = useState(wallet.balance || '0');
-    const [isLoading, setIsLoading] = useState(true);
-    const [network, setNetwork] = useState('Ethereum Mainnet');
-    const [showSendModal, setShowSendModal] = useState(false);
-    const [copySuccess, setCopySuccess] = useState('');
-    const [showNetworkModal, setShowNetworkModal] = useState(false);
+// Format an address to short form
+const formatAddress = (address) => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+};
+
+// Copy text to clipboard and show status message
+const copyToClipboard = async (text, statusMessage) => {
+    try {
+        await navigator.clipboard.writeText(text);
+        return statusMessage || 'Copied!';
+    } catch (err) {
+        console.error('Failed to copy: ', err);
+        return 'Failed to copy';
+    }
+};
+
+function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
+    const [showAddressQR, setShowAddressQR] = useState(false);
+    const [selectedTab, setSelectedTab] = useState('wallet');
     const [selectedChain, setSelectedChain] = useState(ethereum);
-    const [availableChains, setAvailableChains] = useState([]);
+    const [showSendTransaction, setShowSendTransaction] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [balance, setBalance] = useState('0');
+    const [isUpdatingBalance, setIsUpdatingBalance] = useState(true);
+    const [copyStatus, setCopyStatus] = useState('');
+    const [network, setNetwork] = useState('Ethereum Mainnet');
+    const [showNetworkModal, setShowNetworkModal] = useState(false);
+    const [availableChains, setAvailableChains] = useState([]);
+    const [showRequestApproval, setShowRequestApproval] = useState(false);
+    const [currentRequest, setCurrentRequest] = useState(null);
+    const [requestActionLoading, setRequestActionLoading] = useState(false);
+    const [requestActionError, setRequestActionError] = useState(null);
+
+    // Check if we're running in a browser extension context
+    const isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+
+    // Use our extension requests hook
+    const {
+        currentRequest: extensionRequest,
+        loading: requestLoading,
+        error: requestError,
+        approveCurrentRequest,
+        rejectCurrentRequest,
+        isExtensionContext: extensionContext
+    } = useExtensionRequests(wallet);
 
     useEffect(() => {
-        // Apply global styles
-        globalStyles();
+        // If not in extension context, show a warning in console
+        if (!isExtensionContext) {
+            console.warn('Running in web mode: Extension features will be limited or unavailable');
+        }
+    }, [isExtensionContext]);
 
-        // Set available chains
+    // Apply global styles
+    useEffect(() => {
+        globalStyles();
+    }, []);
+
+    // Set available chains
+    useEffect(() => {
         const chains = Object.values(CHAINS_CONFIG);
         setAvailableChains(chains);
+    }, []);
 
-        const fetchWalletDetails = async () => {
-            try {
-                // If we have a selected chain, use its RPC URL
-                const provider = new ethers.providers.JsonRpcProvider(selectedChain.rpcUrl);
+    // Fetch wallet balance when component mounts and when selected chain changes
+    useEffect(() => {
+        if (wallet?.address) {
+            setIsUpdatingBalance(true);
+            fetchWalletDetails();
+        }
+    }, [selectedChain, wallet?.address]);
 
-                // Get current balance
-                const balanceWei = await provider.getBalance(wallet.address);
-                const balanceEth = ethers.utils.formatEther(balanceWei);
-                setBalance(balanceEth);
-
-                // Get network info and set the network name
-                const networkInfo = await provider.getNetwork();
-
-                if (networkInfo.name === 'homestead') {
-                    setNetwork('Ethereum Mainnet');
-                } else if (networkInfo.chainId === parseInt(selectedChain.chainId, 16)) {
-                    setNetwork(selectedChain.chainName);
-                } else {
-                    setNetwork(networkInfo.name);
-                }
-            } catch (error) {
-                console.error('Error fetching wallet details:', error);
-                setNetwork(selectedChain.chainName); // Fallback to the selected chain name
-            } finally {
-                setIsLoading(false);
+    // Fetch wallet balance
+    const fetchWalletDetails = async () => {
+        try {
+            if (!wallet?.address) {
+                throw new Error("No wallet address available");
             }
-        };
 
-        fetchWalletDetails();
+            // If we have a selected chain, use its RPC URL
+            const provider = new ethers.providers.JsonRpcProvider(selectedChain.rpcUrl);
 
-        // Set up interval to refresh balance
-        const intervalId = setInterval(fetchWalletDetails, 30000); // every 30 seconds
+            // Get current balance
+            const balanceWei = await provider.getBalance(wallet.address);
+            const balanceEth = ethers.utils.formatEther(balanceWei);
+            setBalance(balanceEth);
 
-        // Clean up interval on component unmount
-        return () => clearInterval(intervalId);
-    }, [wallet.address, selectedChain]);
+            // Get network info and set the network name
+            const networkInfo = await provider.getNetwork();
 
-    const copyToClipboard = (text, message = 'Copied!') => {
-        navigator.clipboard.writeText(text).then(() => {
-            setCopySuccess(message);
-            setTimeout(() => setCopySuccess(''), 3000);
-        });
-    };
+            if (networkInfo.name === 'homestead') {
+                setNetwork('Ethereum Mainnet');
+            } else if (networkInfo.chainId === parseInt(selectedChain.chainId, 16)) {
+                setNetwork(selectedChain.chainName);
+            } else {
+                setNetwork(networkInfo.name);
+            }
+        } catch (error) {
+            console.error('Error fetching wallet details:', error);
+            // Show relevant network name even if the RPC call fails
+            setNetwork(selectedChain.chainName);
 
-    // Format the address to show only first and last few characters
-    const formatAddress = (address) => {
-        if (!address) return '';
-        return `${address.substring(0, 9)}...${address.substring(address.length - 6)}`;
+            // Set mock balance for development/testing
+            if (!isExtensionContext) {
+                // In web mode, provide mock balances for better UX during development
+                switch (selectedChain.chainId) {
+                    case ethereum.chainId:
+                        setBalance('1.5238');
+                        break;
+                    case polygon.chainId:
+                        setBalance('245.75');
+                        break;
+                    case sepolia.chainId:
+                        setBalance('10.0');
+                        break;
+                    case amoy.chainId:
+                        setBalance('50.0');
+                        break;
+                    default:
+                        setBalance('0.0');
+                }
+            }
+        } finally {
+            setIsUpdatingBalance(false);
+        }
     };
 
     // Handle network change
     const handleNetworkChange = (chain) => {
         setSelectedChain(chain);
         setShowNetworkModal(false);
-        setIsLoading(true); // Trigger loading state to fetch new balance
+        setIsUpdatingBalance(true);
+    };
+
+    // Handle copy to clipboard with status update
+    const handleCopyAddress = async () => {
+        const status = await copyToClipboard(wallet.address, 'Address copied!');
+        setCopyStatus(status);
+
+        // Clear the status after 3 seconds
+        setTimeout(() => {
+            setCopyStatus('');
+        }, 3000);
+    };
+
+    // Process any pending request
+    useEffect(() => {
+        if (pendingRequest) {
+            console.log('Dashboard received pending request:', pendingRequest);
+            setCurrentRequest(pendingRequest);
+            setShowRequestApproval(true);
+        }
+    }, [pendingRequest]);
+
+    // Handle request approval
+    const handleApproveRequest = async () => {
+        if (!currentRequest || !isExtensionContext) return;
+
+        setRequestActionLoading(true);
+        setRequestActionError(null);
+
+        try {
+            console.log('Approving request:', currentRequest);
+
+            // Determine if this is a connection or transaction request
+            const isConnection = currentRequest.type === 'connect';
+            const messageType = isConnection ? 'APPROVE_CONNECTION' : 'APPROVE_TRANSACTION';
+
+            // Log details before sending
+            console.log(`Sending ${messageType} message with requestId:`, currentRequest.id);
+
+            // Send approval message to background script with a timeout
+            const responsePromise = new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    type: messageType,
+                    requestId: currentRequest.id,
+                    accounts: isConnection ? [wallet.address] : undefined
+                }, response => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Chrome runtime error:', chrome.runtime.lastError);
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+                    resolve(response);
+                });
+
+                // Set a timeout in case background doesn't respond
+                setTimeout(() => {
+                    reject(new Error('Background script response timeout'));
+                }, 10000); // 10 second timeout
+            });
+
+            const response = await responsePromise;
+            console.log('Approval response:', response);
+
+            // Add null check for response
+            if (!response) {
+                console.error('No response received from background script');
+                setRequestActionError('No response received from background script');
+                return;
+            }
+
+            // Handle error case - with safe property access
+            if (response && response.error) {
+                setRequestActionError(response.error.message || 'Error approving request');
+            } else {
+                // Success case
+                setShowRequestApproval(false);
+                setCurrentRequest(null);
+                if (onRequestComplete) onRequestComplete();
+            }
+        } catch (error) {
+            console.error('Error approving request:', error);
+            setRequestActionError(error.message || 'Failed to approve request');
+        } finally {
+            setRequestActionLoading(false);
+        }
+    };
+
+    // Handle request rejection
+    const handleRejectRequest = async () => {
+        if (!currentRequest || !isExtensionContext) return;
+
+        setRequestActionLoading(true);
+        setRequestActionError(null);
+
+        try {
+            console.log('Rejecting request:', currentRequest);
+
+            // Determine if this is a connection or transaction request
+            const isConnection = currentRequest.type === 'connect';
+            const messageType = isConnection ? 'REJECT_CONNECTION' : 'REJECT_TRANSACTION';
+
+            // Log details before sending
+            console.log(`Sending ${messageType} message with requestId:`, currentRequest.id);
+
+            // Send rejection message to background script with a timeout
+            const responsePromise = new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    type: messageType,
+                    requestId: currentRequest.id
+                }, response => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Chrome runtime error:', chrome.runtime.lastError);
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+                    resolve(response);
+                });
+
+                // Set a timeout in case background doesn't respond
+                setTimeout(() => {
+                    reject(new Error('Background script response timeout'));
+                }, 10000); // 10 second timeout
+            });
+
+            const response = await responsePromise;
+            console.log('Rejection response:', response);
+
+            // Add null check for response
+            if (!response) {
+                console.error('No response received from background script');
+                setRequestActionError('No response received from background script');
+                return;
+            }
+
+            // Handle error case - with safe property access
+            if (response && response.error) {
+                setRequestActionError(response.error.message || 'Error rejecting request');
+            } else {
+                // Success case
+                setShowRequestApproval(false);
+                setCurrentRequest(null);
+                if (onRequestComplete) onRequestComplete();
+            }
+        } catch (error) {
+            console.error('Error rejecting request:', error);
+            setRequestActionError(error.message || 'Failed to reject request');
+        } finally {
+            setRequestActionLoading(false);
+        }
     };
 
     // If settings page is shown
@@ -423,7 +633,7 @@ function Dashboard({ wallet, onLogout }) {
                 }}>
                     <Flex gap="2">
                         <Wallet size={22} color="var(--colors-primary)" />
-                        <Heading>Wallet Dashboard</Heading>
+                        <Heading>Wallet Dashboard{!isExtensionContext && ' (Web Mode)'}</Heading>
                     </Flex>
 
                     <Flex gap="2">
@@ -472,7 +682,7 @@ function Dashboard({ wallet, onLogout }) {
                         </Flex>
 
                         <Text size="xxl" weight="bold" color="primary" css={{ marginBottom: '$3' }}>
-                            {isLoading ? (
+                            {isUpdatingBalance ? (
                                 <Flex gap="2">
                                     <LoadingIndicator />
                                     <Text size="md">Loading...</Text>
@@ -492,7 +702,7 @@ function Dashboard({ wallet, onLogout }) {
                                     <TooltipTrigger asChild>
                                         <Button
                                             variant="icon"
-                                            onClick={() => copyToClipboard(wallet.address, 'Address copied!')}
+                                            onClick={handleCopyAddress}
                                         >
                                             <Copy size={14} />
                                         </Button>
@@ -502,7 +712,7 @@ function Dashboard({ wallet, onLogout }) {
                             </TooltipProvider>
                         </Flex>
 
-                        {copySuccess === 'Address copied!' && (
+                        {copyStatus === 'Address copied!' && (
                             <Text size="xs" color="success" css={{ marginTop: '$1' }}>
                                 Address copied to clipboard!
                             </Text>
@@ -514,7 +724,7 @@ function Dashboard({ wallet, onLogout }) {
                 <Flex gap="2" css={{ marginBottom: '$4' }}>
                     <Button
                         variant="default"
-                        onClick={() => setShowSendModal(true)}
+                        onClick={() => setShowSendTransaction(true)}
                         css={{
                             flex: 1,
                             padding: '$3',
@@ -676,12 +886,52 @@ function Dashboard({ wallet, onLogout }) {
                 </Dialog>
 
                 {/* Send Transaction Modal */}
-                {showSendModal && (
+                {showSendTransaction && (
                     <SendTransaction
                         wallet={wallet}
-                        onBack={() => setShowSendModal(false)}
+                        onBack={() => setShowSendTransaction(false)}
                         initialChain={selectedChain}
                     />
+                )}
+
+                {/* Add RequestApproval modal */}
+                {showRequestApproval && currentRequest && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000
+                    }}>
+                        <div style={{ maxWidth: '90%', maxHeight: '90%', overflow: 'auto' }}>
+                            <RequestApproval
+                                request={currentRequest}
+                                wallet={wallet}
+                                onClose={() => setShowRequestApproval(false)}
+                                onApprove={handleApproveRequest}
+                                onReject={handleRejectRequest}
+                                loading={requestActionLoading}
+                                error={requestActionError}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Display web mode notice if not in extension context */}
+                {!isExtensionContext && (
+                    <Card css={{ marginTop: '$4', padding: '$3', backgroundColor: 'rgba(255, 107, 0, 0.1)', border: '1px solid $primary' }}>
+                        <Flex gap="2">
+                            <Globe size={16} color="var(--colors-primary)" />
+                            <Text size="sm">
+                                Running in Web Mode: Extension features like website connections and transaction approvals are not available.
+                            </Text>
+                        </Flex>
+                    </Card>
                 )}
             </Container>
         </Theme>

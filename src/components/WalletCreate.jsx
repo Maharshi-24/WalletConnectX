@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createWallet } from '../services/wallet.jsx';
-import { saveWalletData } from '../services/storage.jsx';
+import { saveWalletData, saveSession } from '../services/storage.jsx';
 import SeedPhrase from './SeedPhrase.jsx';
 import * as Form from '@radix-ui/react-form';
 import * as Progress from '@radix-ui/react-progress';
@@ -314,6 +314,9 @@ function WalletCreate({ onWalletReady }) {
         // Save wallet data securely after seed phrase is confirmed
         saveWalletData(newWallet, password);
 
+        // Always save session (no checkbox anymore)
+        saveSession(password);
+
         // Notify parent component
         onWalletReady(newWallet);
     };
@@ -384,14 +387,14 @@ function WalletCreate({ onWalletReady }) {
                         </FormGroup>
 
                         <FormGroup>
-                            <Label htmlFor="confirmCreatePassword">
+                            <Label htmlFor="confirmPassword">
                                 <Lock size={14} />
                                 <span>Confirm Password</span>
                             </Label>
                             <InputWrapper>
                                 <StyledInput
                                     type="password"
-                                    id="confirmCreatePassword"
+                                    id="confirmPassword"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     placeholder="Confirm your password"
@@ -406,20 +409,10 @@ function WalletCreate({ onWalletReady }) {
 
                         <Button
                             type="submit"
-                            variant="primary"
                             disabled={isLoading}
+                            css={{ marginTop: '24px' }}
                         >
-                            {isLoading ? (
-                                <>
-                                    <Spinner size={16} color="white" />
-                                    <span>Creating Wallet...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Plus size={16} />
-                                    <span>Create New Wallet</span>
-                                </>
-                            )}
+                            {isLoading ? "Creating..." : "Create New Wallet"}
                         </Button>
                     </Form.Root>
                 </CardContent>

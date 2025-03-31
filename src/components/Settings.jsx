@@ -464,6 +464,16 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         setTxError("");
 
         try {
+            // Check if we're in web mode (not extension context)
+            const isWebMode = typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id;
+
+            // If in web mode, immediately use mock data
+            if (isWebMode) {
+                // Simulate network delay for better UX
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                throw new Error("Using mock data in web mode");
+            }
+
             // SIMPLE APPROACH: Use direct, documented API endpoints
             const address = wallet.address;
             let apiUrl = '';
@@ -512,16 +522,45 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
             }
         } catch (error) {
             console.error("Transaction fetch error:", error);
-            setTxError(error.message || "Failed to fetch transactions. Please try again later.");
+
+            // Only show the error message if it's not related to mock data
+            if (error.message !== "Using mock data in web mode") {
+                setTxError(error.message || "Failed to fetch transactions. Please try again later.");
+            }
 
             // FALLBACK: Always show some mock transactions for better UX
             const mockTimestamp = Date.now();
+
+            // Create network-specific mock transactions
+            let mockValue, mockCurrency;
+            switch (currentNetwork.chainId) {
+                case ethereum.chainId:
+                    mockValue = "0.05";
+                    mockCurrency = "ETH";
+                    break;
+                case sepolia.chainId:
+                    mockValue = "0.1";
+                    mockCurrency = "ETH";
+                    break;
+                case polygon.chainId:
+                    mockValue = "25.5";
+                    mockCurrency = "MATIC";
+                    break;
+                case amoy.chainId:
+                    mockValue = "10.0";
+                    mockCurrency = "MATIC";
+                    break;
+                default:
+                    mockValue = "0.1";
+                    mockCurrency = currentNetwork.currencySymbol;
+            }
+
             const mockTransactions = [
                 {
                     hash: "0x" + "1".repeat(64),
                     from: wallet.address,
                     to: "0x" + "2".repeat(40),
-                    value: ethers.utils.parseEther("0.1"),
+                    value: ethers.utils.parseEther(mockValue),
                     timestamp: mockTimestamp - 1000 * 60 * 10, // 10 minutes ago
                     gasUsed: ethers.BigNumber.from("21000"),
                     status: 1,
@@ -531,8 +570,28 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                     hash: "0x" + "3".repeat(64),
                     from: "0x" + "4".repeat(40),
                     to: wallet.address,
-                    value: ethers.utils.parseEther("0.05"),
+                    value: ethers.utils.parseEther(mockValue),
                     timestamp: mockTimestamp - 1000 * 60 * 60, // 1 hour ago
+                    gasUsed: ethers.BigNumber.from("21000"),
+                    status: 1,
+                    type: "incoming"
+                },
+                {
+                    hash: "0x" + "5".repeat(64),
+                    from: wallet.address,
+                    to: "0x" + "6".repeat(40),
+                    value: ethers.utils.parseEther((parseFloat(mockValue) * 0.75).toString()),
+                    timestamp: mockTimestamp - 1000 * 60 * 60 * 5, // 5 hours ago
+                    gasUsed: ethers.BigNumber.from("21000"),
+                    status: 1,
+                    type: "outgoing"
+                },
+                {
+                    hash: "0x" + "7".repeat(64),
+                    from: "0x" + "8".repeat(40),
+                    to: wallet.address,
+                    value: ethers.utils.parseEther((parseFloat(mockValue) * 1.5).toString()),
+                    timestamp: mockTimestamp - 1000 * 60 * 60 * 24, // 1 day ago
                     gasUsed: ethers.BigNumber.from("21000"),
                     status: 1,
                     type: "incoming"

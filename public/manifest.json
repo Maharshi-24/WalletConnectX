@@ -1,21 +1,25 @@
 {
-    "manifest_version": 2,
-    "name": "Cross-Net Wallet",
+    "manifest_version": 3,
+    "name": "WalletX",
     "version": "1.0.0",
-    "description": "A secure multi-chain wallet browser extension with WalletConnect support",
+    "description": "A secure multi-chain crypto wallet for Ethereum and other EVM networks",
     "icons": {
+        "16": "icons/icon16.png",
         "48": "icon.svg",
         "128": "icon.svg"
     },
-    "browser_action": {
+    "action": {
         "default_popup": "index.html",
-        "default_icon": "icon.svg"
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icon.svg",
+            "128": "icon.svg"
+        },
+        "default_title": "WalletX"
     },
     "background": {
-        "scripts": [
-            "background.js"
-        ],
-        "persistent": true
+        "service_worker": "background.js",
+        "type": "module"
     },
     "content_scripts": [
         {
@@ -26,16 +30,45 @@
                 "contentScript.js"
             ],
             "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "*://*.uniswap.org/*",
+                "*://*.1inch.io/*",
+                "*://*.curve.fi/*",
+                "*://*.opensea.io/*"
+            ],
+            "js": [
+                "uniswapDetector.js"
+            ],
+            "run_at": "document_idle"
         }
     ],
     "web_accessible_resources": [
-        "injectScript.js"
+        {
+            "resources": [
+                "injectScript.js",
+                "index.html",
+                "icon.svg",
+                "icon_highlight.svg",
+                "icons/icon16.png"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
     ],
     "permissions": [
         "storage",
         "tabs",
         "activeTab",
+        "notifications",
+        "contextMenus"
+    ],
+    "host_permissions": [
         "<all_urls>"
     ],
-    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    }
 }

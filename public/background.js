@@ -1,5 +1,5 @@
 /**
- * Cross-Net Wallet Background Script
+ * WalletX Background Script
  * 
  * This script runs in the background and is responsible for:
  * 1. Managing wallet state and storage
@@ -14,15 +14,28 @@ let state = {
     isUnlocked: false,
     accounts: [],
     selectedChainId: null,
-    pendingRequests: [],
+    pendingRequests: {},
     connectedSites: {}, // {origin: {origin, accounts, chainId, connected, permissions}}
     walletConnectSessions: [] // Store active WalletConnect sessions
 };
+
+// Extension branding and metadata
+const EXTENSION_NAME = "WalletX";
+const EXTENSION_VERSION = "1.0.0";
 
 // Initialize state from storage
 chrome.storage.local.get(['state', 'connectedSites', 'walletConnectSessions'], (result) => {
     if (result.state) {
         state = { ...state, ...result.state };
+    } else {
+        // Set initial accounts - generate a random test account if none exists
+        if (!state.accounts || state.accounts.length === 0) {
+            // This is just a placeholder account
+            const testAccount = '0x' + Math.random().toString(16).substring(2, 42).padStart(40, '0');
+            state.accounts = [testAccount];
+        }
+        state.selectedChainId = '0x1'; // Default to ETH mainnet
+        state.isUnlocked = false;
     }
 
     if (result.connectedSites) {
@@ -33,420 +46,677 @@ chrome.storage.local.get(['state', 'connectedSites', 'walletConnectSessions'], (
         state.walletConnectSessions = result.walletConnectSessions;
     }
 
-    console.log('Wallet state initialized:', state);
+    console.log(`${EXTENSION_NAME} state initialized:`, state);
+
+    // Save the initial state to ensure it's properly preserved
+    saveState();
 });
 
-// Message handler from content scripts and popup
+// Setup listener for when action button is clicked
+chrome.action.onClicked.addListener((tab) => {
+    // If no popup, open the extension page
+    chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+});
+
+// Message handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Background received message:', message);
+    console.log(`${EXTENSION_NAME}: Background received message:`, message, "from:", sender);
+
+    // Check if the message type starts with our prefix
+    const isWalletXMessage = message.type && (
+        message.type.startsWith('WALLETX_') ||
+        message.type.startsWith('CROSS_NET_WALLET_')
+    );
+
+    if (!isWalletXMessage) {
+        console.log(`${EXTENSION_NAME}: Ignoring non-WalletX message`);
+        return false;
+    }
 
     // Handle different message types
     switch (message.type) {
-        case 'GET_STATE':
-            sendResponse({ state });
-            break;
-
-        case 'CONNECT_REQUEST':
+        case 'WALLETX_CONNECT':
+        case 'CROSS_NET_WALLET_CONNECT':
             handleConnectRequest(message, sender, sendResponse);
-            break;
+            return true; // Keep the message channel open for async response
 
-        case 'APPROVE_CONNECTION':
-            handleConnectionApproval(message, sendResponse);
-            break;
+        case 'WALLETX_REQUEST':
+        case 'CROSS_NET_WALLET_REQUEST':
+            handleWeb3Request(message, sender, sendResponse);
+            return true; // Keep the message channel open for async response
 
-        case 'REJECT_CONNECTION':
-            handleConnectionRejection(message, sendResponse);
-            break;
+        case 'WALLETX_GET_ACCOUNTS':
+        case 'CROSS_NET_WALLET_GET_ACCOUNTS':
+            // Return accounts based on connection status
+            const origin = sender.origin || (sender.url ? new URL(sender.url).origin : null);
+            const isConnected = state.connectedSites[origin];
 
-        case 'TRANSACTION_REQUEST':
-        case 'SEND_TRANSACTION_REQUEST':
-        case 'SIGN_TRANSACTION_REQUEST':
-            handleTransactionRequest(message, sender, sendResponse);
-            break;
+            if (isConnected) {
+                console.log(`${EXTENSION_NAME}: Returning accounts for connected site:`, origin);
+                sendResponse({ success: true, accounts: state.accounts });
+            } else {
+                console.log(`${EXTENSION_NAME}: Site not connected, returning empty accounts for:`, origin);
+                sendResponse({ success: true, accounts: [] });
+            }
+            return false;
 
-        case 'APPROVE_TRANSACTION':
-            handleTransactionApproval(message, sendResponse);
-            break;
+        case 'WALLETX_GET_STATE':
+        case 'CROSS_NET_WALLET_GET_STATE':
+            sendResponse({
+                success: true,
+                state: {
+                    isUnlocked: state.isUnlocked,
+                    selectedChainId: state.selectedChainId,
+                    accounts: state.accounts,
+                    connectedSites: state.connectedSites
+                }
+            });
+            return false;
 
-        case 'REJECT_TRANSACTION':
-            handleTransactionRejection(message, sendResponse);
-            break;
+        case 'WALLETX_UPDATE_CHAIN':
+        case 'CROSS_NET_WALLET_UPDATE_CHAIN':
+            // Update the selected chain
+            state.selectedChainId = message.chainId;
+            saveState();
 
-        case 'CHAIN_CHANGED':
-            handleChainChanged(message, sendResponse);
-            break;
+            // Notify all connected sites about the chain change
+            broadcastToContentScripts({
+                type: 'WALLETX_CHAIN_CHANGED',
+                chainId: message.chainId
+            });
 
-        case 'SITE_DISCONNECTED':
-            handleSiteDisconnected(message, sendResponse);
-            break;
+            sendResponse({ success: true });
+            return false;
 
-        // WalletConnect specific message handlers
-        case 'WALLETCONNECT_INIT':
-            handleWalletConnectInit(message, sendResponse);
-            break;
+        case 'WALLETX_APPROVE_CONNECTION':
+        case 'CROSS_NET_WALLET_APPROVE_CONNECTION':
+            handleConnectionApproval(message, sender, sendResponse);
+            return false;
 
-        case 'WALLETCONNECT_SESSION_REQUEST':
-            handleWalletConnectSessionRequest(message, sendResponse);
-            break;
+        case 'WALLETX_REJECT_CONNECTION':
+        case 'CROSS_NET_WALLET_REJECT_CONNECTION':
+            handleConnectionRejection(message, sender, sendResponse);
+            return false;
 
-        case 'WALLETCONNECT_APPROVE_SESSION':
-            handleWalletConnectApproveSession(message, sendResponse);
-            break;
-
-        case 'WALLETCONNECT_REJECT_SESSION':
-            handleWalletConnectRejectSession(message, sendResponse);
-            break;
-
-        case 'WALLETCONNECT_CALL_REQUEST':
-            handleWalletConnectCallRequest(message, sendResponse);
-            break;
-
-        case 'WALLETCONNECT_APPROVE_CALL_REQUEST':
-            handleWalletConnectApproveCallRequest(message, sendResponse);
-            break;
-
-        case 'WALLETCONNECT_REJECT_CALL_REQUEST':
-            handleWalletConnectRejectCallRequest(message, sendResponse);
-            break;
-
-        case 'WALLETCONNECT_DISCONNECT':
-            handleWalletConnectDisconnect(message, sendResponse);
-            break;
+        case 'WALLETX_DISCONNECT_SITE':
+        case 'CROSS_NET_WALLET_DISCONNECT_SITE':
+            handleDisconnectSite(message, sender, sendResponse);
+            return false;
 
         default:
-            console.log('Unknown message type received:', message.type);
-            sendResponse({ error: 'Unknown message type' });
+            console.log(`${EXTENSION_NAME}: Unhandled message type:`, message.type);
+            sendResponse({ success: false, error: 'Unknown message type' });
             return false;
     }
-
-    // Return true to indicate async response
-    return true;
 });
 
-// Handle connection request from a website
+// Handle connection requests from websites
 function handleConnectRequest(message, sender, sendResponse) {
-    const { origin } = message;
+    console.log(`${EXTENSION_NAME}: Handling connection request:`, message);
+    const origin = message.origin || (sender.origin || (sender.url ? new URL(sender.url).origin : null));
 
-    // Check if site is already connected
-    if (
-        state.connectedSites[origin] &&
-        state.connectedSites[origin].connected &&
-        state.accounts.length > 0
-    ) {
+    if (!origin) {
+        console.error(`${EXTENSION_NAME}: No origin in connection request`);
         sendResponse({
-            connected: true,
-            accounts: state.connectedSites[origin].accounts,
-            chainId: state.selectedChainId
+            success: false,
+            error: { code: -32602, message: 'Missing origin' }
         });
-
-        // Notify all tabs on this origin about connection status
-        notifyConnectedTabs(origin, {
-            type: 'WALLET_EVENT',
-            event: 'accountsChanged',
-            data: state.connectedSites[origin].accounts
-        });
-
         return;
     }
 
-    // Create a pending request
-    const requestId = Date.now().toString();
+    // Check if already connected - return accounts immediately in this case
+    if (state.connectedSites[origin]) {
+        console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts`);
+        sendResponse({
+            success: true,
+            method: 'eth_requestAccounts',
+            result: state.accounts
+        });
+        return;
+    }
+
+    // For sites that need an immediate response, send a "pending" response
+    const needsImmediateResponse = message.method === 'eth_requestAccounts';
+    if (needsImmediateResponse) {
+        // Don't send response yet, we'll send it after user interaction
+        console.log(`${EXTENSION_NAME}: Deferring response until user approves/rejects`);
+    }
+
+    // Create a connection request
     const request = {
-        id: requestId,
+        id: message.id || `conn_${Date.now()}`,
         type: 'connect',
-        origin,
-        tabId: sender.tab ? sender.tab.id : null,
+        origin: origin,
+        favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
+        title: message.title || (sender.tab ? sender.tab.title : origin),
         timestamp: Date.now()
     };
 
-    // Add to pending requests
-    state.pendingRequests.push(request);
+    // Store the request
+    state.pendingRequests[request.id] = request;
     saveState();
 
-    // Create popup to handle approval if extension is not open
-    chrome.windows.create({
-        url: chrome.runtime.getURL('index.html?request=' + requestId),
-        type: 'popup',
-        width: 400,
-        height: 600
-    });
+    // Open extension popup for user to approve/reject
+    openExtensionPopup(request);
 
-    // Response will be sent by the approval handler
-    sendResponse({
-        pending: true,
-        requestId
-    });
-}
+    // Store the response callback to be called when user responds
+    const responseTimeout = setTimeout(() => {
+        // If no response after 5 minutes, send timeout error
+        console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
 
-// Handle connection approval
-function handleConnectionApproval(message, sendResponse) {
-    const { requestId, accounts } = message;
-
-    // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
-
-    if (requestIndex === -1) {
-        sendResponse({ error: 'Request not found' });
-        return;
-    }
-
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
-
-    // Update connected sites
-    state.connectedSites[request.origin] = {
-        origin: request.origin,
-        connected: true,
-        accounts: accounts || state.accounts,
-        chainId: state.selectedChainId,
-        permissions: ['eth_accounts'],
-        timestamp: Date.now()
-    };
-
-    saveState();
-    saveConnectedSites();
-
-    // Notify website about approval
-    if (request.tabId) {
-        chrome.tabs.sendMessage(request.tabId, {
-            type: 'RESPONSE',
-            requestId: request.id,
-            result: {
-                connected: true,
-                accounts: state.connectedSites[request.origin].accounts,
-                chainId: state.selectedChainId
-            }
-        });
-    }
-
-    sendResponse({ success: true });
-
-    // Notify all tabs on this origin about connection
-    notifyConnectedTabs(request.origin, {
-        type: 'WALLET_EVENT',
-        event: 'accountsChanged',
-        data: state.connectedSites[request.origin].accounts
-    });
-
-    notifyConnectedTabs(request.origin, {
-        type: 'WALLET_EVENT',
-        event: 'chainChanged',
-        data: state.selectedChainId
-    });
-}
-
-// Handle connection rejection
-function handleConnectionRejection(message, sendResponse) {
-    const { requestId } = message;
-
-    // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
-
-    if (requestIndex === -1) {
-        sendResponse({ error: 'Request not found' });
-        return;
-    }
-
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
-    saveState();
-
-    // Notify website about rejection
-    if (request.tabId) {
-        chrome.tabs.sendMessage(request.tabId, {
-            type: 'RESPONSE',
-            requestId: request.id,
-            error: {
-                code: 4001,
-                message: 'User rejected connection request'
-            }
-        });
-    }
-
-    sendResponse({ success: true });
-}
-
-// Handle transaction request
-function handleTransactionRequest(message, sender, sendResponse) {
-    const { origin, transaction } = message;
-    const tabId = sender.tab ? sender.tab.id : null; // Get tabId here
-
-    // Check if site is connected
-    if (!state.connectedSites[origin] || !state.connectedSites[origin].connected) {
-        sendResponse({
-            error: {
-                code: 4100,
-                message: 'Unauthorized: Please connect first'
-            }
-        });
-        return;
-    }
-
-    // Create a unique request ID (using timestamp + random for better uniqueness)
-    const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-    // Prepare the request object to store
-    const pendingTxData = {
-        id: requestId,
-        type: message.type === 'SIGN_TRANSACTION_REQUEST' ? 'sign' : 'send', // Distinguish sign vs send
-        origin,
-        tabId,
-        transaction, // The raw transaction object from the dApp
-        chainId: state.connectedSites[origin].chainId, // Get chainId from connection state
-        timestamp: Date.now()
-    };
-
-    // Store the pending transaction details for the popup to access
-    chrome.storage.local.set({ pendingTransaction: pendingTxData }, () => {
-        console.log('Pending transaction stored:', pendingTxData);
-        // Open the extension popup to approve the transaction
-        // Pass the request ID so the popup knows which request to handle
-        chrome.windows.create({
-            url: chrome.runtime.getURL(`index.html?requestType=transaction&requestId=${requestId}`),
-            type: "popup",
-            width: 400,
-            height: 650 // Adjust height as needed
-        });
-
-        // Send a pending status back to the content script
-        sendResponse({
-            pending: true,
-            requestId // Send requestId back if needed by content script
-        });
-    });
-
-    // Return true because the response is asynchronous
-    return true;
-}
-
-// Handle transaction approval from the popup
-async function handleTransactionApproval(message, sendResponse) {
-    const { requestId } = message; // Popup sends the requestId
-
-    // Retrieve the pending transaction details
-    chrome.storage.local.get(['pendingTransaction', 'state'], async (result) => {
-        const pendingTx = result.pendingTransaction;
-        const currentState = result.state;
-
-        if (!pendingTx || pendingTx.id !== requestId) {
-            console.error('Transaction approval error: Request ID mismatch or not found');
-            sendResponse({ success: false, error: 'Request not found or expired' });
-            return;
+        if (pendingCallbacks[request.id]) {
+            pendingCallbacks[request.id].sendResponse({
+                success: false,
+                error: { code: -32603, message: 'Request timed out. Please try again.' }
+            });
+            delete pendingCallbacks[request.id];
         }
 
-        // --- Security Placeholder: Decrypt Private Key ---
-        // In a real wallet, retrieve the encrypted private key for the
-        // relevant account (e.g., state.accounts[0].privateKey) and
-        // decrypt it using the user's password.
-        // const decryptedPrivateKey = await decryptKey(currentState.accounts[0].encryptedKey, userPassword);
-        const decryptedPrivateKey = "0xYOUR_SECURELY_RETRIEVED_PRIVATE_KEY"; // Replace with secure retrieval
-        if (!decryptedPrivateKey) {
-            console.error('Transaction approval error: Could not get private key');
-            sendResponse({ success: false, error: 'Failed to retrieve private key' });
-            chrome.storage.local.remove('pendingTransaction'); // Clean up
-            return;
-        }
-        // --- End Security Placeholder ---
+        // Remove the request
+        delete state.pendingRequests[request.id];
+        saveState();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Store the response callback and timeout in global object to be called when user responds
+    pendingCallbacks[request.id] = {
+        sendResponse,
+        timeout: responseTimeout,
+        origin
+    };
+}
+
+// Handle connection approval from popup
+function handleConnectionApproval(message, sender, sendResponse) {
+    const requestId = message.requestId;
+    console.log(`${EXTENSION_NAME}: Handling connection approval for request ${requestId}`);
+
+    if (!requestId || !state.pendingRequests[requestId]) {
+        console.error(`${EXTENSION_NAME}: No pending request found with ID ${requestId}`);
+        sendResponse({ success: false, error: 'No pending request found' });
+        return;
+    }
+
+    const request = state.pendingRequests[requestId];
+    const origin = request.origin;
+
+    // Mark site as connected
+    state.connectedSites[origin] = {
+        active: true,
+        connectedAt: Date.now(),
+        permissions: message.permissions || ['eth_accounts', 'eth_requestAccounts']
+    };
+
+    // Remove from pending requests
+    delete state.pendingRequests[requestId];
+    saveState();
+
+    // Send response to the original requester if callback exists
+    if (pendingCallbacks[requestId]) {
+        clearTimeout(pendingCallbacks[requestId].timeout);
 
         try {
-            // --- Ethers.js Integration Placeholder ---
-            // Ensure ethers.js is loaded or imported
-            // const ethers = require('ethers'); // Or import if using modules
-
-            // Get the correct provider RPC URL based on chainId
-            // You'll need a mapping from chainId to RPC URL
-            const rpcUrl = getRpcUrlForChain(pendingTx.chainId); // Implement getRpcUrlForChain
-            if (!rpcUrl) throw new Error(`Unsupported chainId: ${pendingTx.chainId}`);
-
-            const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-            const wallet = new ethers.Wallet(decryptedPrivateKey, provider);
-
-            let txResponse;
-            if (pendingTx.type === 'sign') {
-                // TODO: Implement signing logic if needed separately
-                // For now, assume approval means sending for simplicity
-                console.warn('Signing-only not fully implemented, proceeding with send.');
-                txResponse = await wallet.sendTransaction(pendingTx.transaction);
-            } else {
-                // Populate necessary fields if missing (optional, dApp should provide)
-                const populatedTx = await wallet.populateTransaction(pendingTx.transaction);
-                txResponse = await wallet.sendTransaction(populatedTx);
-            }
-
-            console.log('Transaction sent:', txResponse);
-
-            // Send success response back to the content script
-            if (pendingTx.tabId) {
-                chrome.tabs.sendMessage(pendingTx.tabId, {
-                    type: 'TRANSACTION_RESPONSE', // Use a generic response type
-                    requestId: pendingTx.id,
-                    approved: true,
-                    result: txResponse.hash // Send back the transaction hash
-                });
-            }
-            sendResponse({ success: true, txHash: txResponse.hash });
-            // --- End Ethers.js Integration Placeholder ---
-
+            pendingCallbacks[requestId].sendResponse({
+                success: true,
+                method: 'eth_requestAccounts',
+                result: state.accounts
+            });
+            console.log(`${EXTENSION_NAME}: Connection approval response sent to origin ${origin}`);
         } catch (error) {
-            console.error('Transaction failed:', error);
-            // Send error response back to the content script
-            if (pendingTx.tabId) {
-                chrome.tabs.sendMessage(pendingTx.tabId, {
-                    type: 'TRANSACTION_RESPONSE',
-                    requestId: pendingTx.id,
-                    approved: false,
-                    error: { code: -32000, message: error.message || 'Transaction failed' }
-                });
-            }
-            sendResponse({ success: false, error: error.message || 'Transaction failed' });
-        } finally {
-            // Clean up the pending transaction from storage
-            chrome.storage.local.remove('pendingTransaction');
+            console.error(`${EXTENSION_NAME}: Error sending approval response:`, error);
         }
+
+        delete pendingCallbacks[requestId];
+    }
+
+    // Notify all content scripts that a site has been connected
+    broadcastToContentScripts({
+        type: 'WALLETX_CONNECTION_APPROVED',
+        origin: origin,
+        accounts: state.accounts
     });
 
-    return true; // Indicate async response
+    // Send response to popup
+    sendResponse({ success: true });
 }
 
-// Handle transaction rejection from the popup
-function handleTransactionRejection(message, sendResponse) {
-    const { requestId } = message;
+// Handle connection rejection from popup
+function handleConnectionRejection(message, sender, sendResponse) {
+    const requestId = message.requestId;
+    console.log(`${EXTENSION_NAME}: Handling connection rejection for request ${requestId}`);
 
-    chrome.storage.local.get('pendingTransaction', (result) => {
-        const pendingTx = result.pendingTransaction;
+    if (!requestId || !state.pendingRequests[requestId]) {
+        console.error(`${EXTENSION_NAME}: No pending request found with ID ${requestId}`);
+        sendResponse({ success: false, error: 'No pending request found' });
+        return;
+    }
 
-        if (!pendingTx || pendingTx.id !== requestId) {
-            console.error('Transaction rejection error: Request ID mismatch or not found');
-            sendResponse({ success: false, error: 'Request not found or expired' });
+    const request = state.pendingRequests[requestId];
+
+    // Remove from pending requests
+    delete state.pendingRequests[requestId];
+    saveState();
+
+    // Send response to the original requester if callback exists
+    if (pendingCallbacks[requestId]) {
+        clearTimeout(pendingCallbacks[requestId].timeout);
+        pendingCallbacks[requestId].sendResponse({
+            success: false,
+            error: 'The request was rejected by the user'
+        });
+        delete pendingCallbacks[requestId];
+    }
+
+    // Send response to popup
+    sendResponse({ success: true });
+}
+
+// Handle disconnect request
+function handleDisconnectSite(message, sender, sendResponse) {
+    const origin = message.origin;
+    console.log(`${EXTENSION_NAME}: Handling disconnect for site ${origin}`);
+
+    if (!origin) {
+        console.error(`${EXTENSION_NAME}: No origin in disconnect request`);
+        sendResponse({ success: false, error: 'No origin in request' });
+        return;
+    }
+
+    // Remove site from connected sites
+    if (state.connectedSites[origin]) {
+        delete state.connectedSites[origin];
+        saveState();
+
+        // Notify all content scripts that a site has been disconnected
+        broadcastToContentScripts({
+            type: 'WALLETX_DISCONNECTED',
+            origin: origin
+        });
+    }
+
+    // Send response
+    sendResponse({ success: true });
+}
+
+// Broadcast message to all content scripts
+function broadcastToContentScripts(message) {
+    chrome.tabs.query({}, (tabs) => {
+        for (const tab of tabs) {
+            try {
+                chrome.tabs.sendMessage(tab.id, message);
+            } catch (error) {
+                console.error(`${EXTENSION_NAME}: Error sending message to tab ${tab.id}:`, error);
+            }
+        }
+    });
+}
+
+// Global object to store callbacks for pending requests
+const pendingCallbacks = {};
+
+// Handle Web3 JSON-RPC requests
+function handleWeb3Request(message, sender, sendResponse) {
+    console.log(`${EXTENSION_NAME}: Processing Web3 request:`, message);
+
+    const origin = message.origin || (sender.origin || (sender.url ? new URL(sender.url).origin : null));
+    const { method, params, id } = message;
+
+    if (!origin) {
+        console.error(`${EXTENSION_NAME}: No origin in Web3 request`);
+        sendResponse({
+            success: false,
+            error: { code: -32602, message: 'Missing origin' }
+        });
+        return;
+    }
+
+    // Handle account-related methods according to web3 protocol
+    if (method === 'eth_requestAccounts' || method === 'eth_accounts') {
+        // For eth_requestAccounts, check if site is connected
+        if (method === 'eth_requestAccounts') {
+            // If site is already connected, return accounts immediately
+            if (state.connectedSites[origin]) {
+                console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts for eth_requestAccounts`);
+                sendResponse({
+                    success: true,
+                    result: state.accounts,
+                    method
+                });
+                return;
+            }
+
+            // Otherwise, create a connection request (follow similar pattern to handleConnectRequest)
+            const request = {
+                id: message.id || `conn_${Date.now()}`,
+                type: 'connect',
+                origin,
+                method,
+                favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
+                title: message.title || (sender.tab ? sender.tab.title : origin),
+                timestamp: Date.now()
+            };
+
+            // Store the request
+            state.pendingRequests[request.id] = request;
+            saveState();
+
+            // Open extension popup for user to approve/reject
+            openExtensionPopup(request);
+
+            // Store the response callback to be called when user responds
+            const timeoutId = setTimeout(() => {
+                // If no response after 5 minutes, send timeout error
+                console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
+
+                if (pendingCallbacks[request.id]) {
+                    try {
+                        pendingCallbacks[request.id].sendResponse({
+                            success: false,
+                            error: { code: -32603, message: 'Request timed out' }
+                        });
+                    } catch (error) {
+                        console.error(`${EXTENSION_NAME}: Error sending timeout response:`, error);
+                    }
+
+                    delete pendingCallbacks[request.id];
+                }
+
+                // Remove the request
+                delete state.pendingRequests[request.id];
+                saveState();
+            }, 5 * 60 * 1000); // 5 minutes
+
+            pendingCallbacks[request.id] = {
+                sendResponse,
+                timeout: timeoutId,
+                origin
+            };
+
+            // Don't send an immediate response - the response will be sent after user interaction
             return;
         }
 
-        console.log('Transaction rejected by user:', requestId);
+        // For eth_accounts, return accounts if connected, empty array if not
+        const isConnected = state.connectedSites[origin];
+        const accounts = isConnected ? state.accounts : [];
+        console.log(`${EXTENSION_NAME}: Returning ${accounts.length} accounts for eth_accounts to ${origin}`);
+        sendResponse({
+            success: true,
+            result: accounts,
+            method
+        });
+        return;
+    }
 
-        // Notify the content script of the rejection
-        if (pendingTx.tabId) {
-            chrome.tabs.sendMessage(pendingTx.tabId, {
-                type: 'TRANSACTION_RESPONSE',
-                requestId: pendingTx.id,
-                approved: false,
-                error: { code: 4001, message: 'User rejected the transaction' }
+    // Handle chainId request
+    if (method === 'eth_chainId') {
+        console.log(`${EXTENSION_NAME}: Returning chainId ${state.selectedChainId} to ${origin}`);
+        sendResponse({
+            success: true,
+            result: state.selectedChainId,
+            method
+        });
+        return;
+    }
+
+    // Handle transaction requests
+    if (method === 'eth_sendTransaction' || method === 'eth_signTransaction' ||
+        method === 'personal_sign' || method === 'eth_sign' || method === 'eth_signTypedData_v4') {
+
+        // Check if site is connected
+        if (!state.connectedSites[origin]) {
+            console.log(`${EXTENSION_NAME}: Site ${origin} not connected, rejecting transaction request`);
+            sendResponse({
+                success: false,
+                error: { code: 4100, message: 'The requested method requires wallet connection. Please connect first.' },
+                method
             });
+            return;
         }
 
-        // Clean up the pending transaction
-        chrome.storage.local.remove('pendingTransaction', () => {
-            sendResponse({ success: true });
-        });
-    });
+        // Create a transaction request
+        const request = {
+            id: message.id || `tx_${Date.now()}`,
+            type: 'transaction',
+            method,
+            params,
+            origin,
+            favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
+            title: message.title || (sender.tab ? sender.tab.title : origin),
+            timestamp: Date.now()
+        };
 
-    return true; // Indicate async response
+        // Store the request
+        state.pendingRequests[request.id] = request;
+        saveState();
+
+        // Open extension popup for user to approve/reject
+        openExtensionPopup(request);
+
+        // Store the response callback to be called when user responds
+        pendingCallbacks[request.id] = {
+            sendResponse,
+            timeout: setTimeout(() => {
+                // If no response after 5 minutes, send timeout error
+                console.log(`${EXTENSION_NAME}: Transaction request timed out for ${origin}`);
+                sendResponse({
+                    success: false,
+                    error: { code: -32603, message: 'Request timed out' }
+                });
+
+                // Remove the request
+                delete state.pendingRequests[request.id];
+                delete pendingCallbacks[request.id];
+                saveState();
+            }, 5 * 60 * 1000), // 5 minutes
+            origin
+        };
+
+        return;
+    }
+
+    // Handle other RPC methods - pass through to provider
+    console.log(`${EXTENSION_NAME}: Passing through method ${method} to provider`);
+    // This would typically go to a Web3 provider that can handle standard RPC methods
+    // For this example, we'll send a mock response for common methods
+
+    if (method === 'net_version') {
+        // Convert hex chainId to decimal net_version
+        const netVersion = parseInt(state.selectedChainId, 16).toString();
+        sendResponse({
+            success: true,
+            result: netVersion,
+            method
+        });
+        return;
+    }
+
+    if (method === 'eth_blockNumber') {
+        // Mock response
+        sendResponse({
+            success: true,
+            result: '0x' + Math.floor(Math.random() * 10000000).toString(16),
+            method
+        });
+        return;
+    }
+
+    // Default response for unsupported methods
+    console.log(`${EXTENSION_NAME}: Unsupported method ${method}, returning error`);
+    sendResponse({
+        success: false,
+        error: { code: -32601, message: `Method ${method} not supported` },
+        method
+    });
 }
 
-// Handle chain changed event
-function handleChainChanged(message, sendResponse) {
-    const { chainId } = message;
+// Show a notification to the user about the connection request
+function showConnectionNotification(request) {
+    // Create a unique notification ID
+    const notificationId = `request_${Date.now()}`;
 
-    // Update the state
+    try {
+        // Show a notification to the user
+        chrome.notifications.create(notificationId, {
+            type: 'basic',
+            iconUrl: 'icon.svg',
+            title: `${EXTENSION_NAME} Connection Request`,
+            message: `${request.type === 'connect' ? 'Connection' : 'Transaction'} request from ${request.origin}. Click to view.`,
+            priority: 2,
+            requireInteraction: true // Keep the notification until user interacts with it
+        });
+
+        // Add a listener for the notification click
+        chrome.notifications.onClicked.addListener(function notificationClickListener(clickedId) {
+            if (clickedId === notificationId) {
+                // Remove this specific listener
+                chrome.notifications.onClicked.removeListener(notificationClickListener);
+                chrome.notifications.clear(notificationId);
+
+                // Open extension popup
+                chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+            }
+        });
+    } catch (error) {
+        console.error(`${EXTENSION_NAME}: Error showing notification:`, error);
+    }
+}
+
+// Function to highlight the extension icon
+function highlightExtensionIcon() {
+    try {
+        // Use a safer icon setting approach with fallbacks
+        const icons = {
+            "16": "icons/icon16.png",
+            "48": "icon.svg",
+            "128": "icon.svg"
+        };
+
+        // Set a badge instead of changing the icon to avoid SVG issues
+        chrome.action.setBadgeText({ text: '!' });
+        chrome.action.setBadgeBackgroundColor({ color: '#FF8A00' });
+
+        // Clear badge after 5 seconds
+        setTimeout(() => {
+            chrome.action.setBadgeText({ text: '' });
+        }, 5000);
+    } catch (error) {
+        console.error(`${EXTENSION_NAME}: Error highlighting extension icon:`, error);
+    }
+}
+
+// Open the extension popup to show a request
+function openExtensionPopup(request) {
+    console.log(`${EXTENSION_NAME}: Opening extension popup for request:`, request);
+
+    try {
+        // Store the request in the local storage for the popup to access
+        chrome.storage.local.set(
+            { currentPendingRequest: request },
+            () => {
+                // Don't automatically open popup for eth_requestAccounts
+                // Just highlight the icon to draw attention
+                highlightExtensionIcon();
+
+                // Show a notification to inform the user of the pending request
+                showConnectionNotification(request);
+
+                console.log(`${EXTENSION_NAME}: Set current pending request and highlighted icon for user to click`);
+            }
+        );
+    } catch (error) {
+        console.error(`${EXTENSION_NAME}: Error in openExtensionPopup:`, error);
+        // As a fallback, show a notification
+        showConnectionNotification(request);
+    }
+}
+
+// Save state to storage
+function saveState() {
+    // Don't save pendingRequests to avoid bloating storage
+    const stateToSave = {
+        isUnlocked: state.isUnlocked,
+        accounts: state.accounts,
+        selectedChainId: state.selectedChainId
+    };
+
+    chrome.storage.local.set({ state: stateToSave });
+}
+
+// Save connected sites to storage
+function saveConnectedSites() {
+    chrome.storage.local.set({ connectedSites: state.connectedSites });
+}
+
+// Notify all tabs with the same origin
+function notifyConnectedTabs(origin, message) {
+    chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+            if (tab.url && tab.url.includes(origin)) {
+                chrome.tabs.sendMessage(tab.id, message, (response) => {
+                    if (chrome.runtime.lastError) {
+                        // This is normal if content script hasn't loaded yet
+                        console.debug(`Could not send to tab ${tab.id}:`, chrome.runtime.lastError);
+                    }
+                });
+            }
+        });
+    });
+}
+
+// Handle get state request
+function handleGetState(message, origin, sendResponse) {
+    try {
+        // Only return minimal state information for security
+        const filteredState = {
+            isUnlocked: state.isUnlocked,
+            selectedChainId: state.selectedChainId,
+            hasPendingRequests: Object.keys(state.pendingRequests).length > 0
+        };
+
+        // If origin is provided, include connection status
+        if (origin) {
+            filteredState.connected = !!(state.connectedSites[origin] && state.connectedSites[origin].connected);
+            if (filteredState.connected) {
+                filteredState.accounts = state.connectedSites[origin].accounts;
+            }
+        }
+
+        sendResponse({ state: filteredState });
+    } catch (error) {
+        console.error('Error handling getState:', error);
+        sendResponse({ error: error.message });
+    }
+}
+
+// Get all pending requests
+function getPendingRequests(sendResponse) {
+    try {
+        console.log('Getting pending requests', state.pendingRequests);
+        const pendingRequestsArray = Object.values(state.pendingRequests);
+        sendResponse({ pendingRequests: pendingRequestsArray });
+    } catch (error) {
+        console.error('Error getting pending requests:', error);
+        sendResponse({ error: error.message, pendingRequests: [] });
+    }
+}
+
+// Listen for Chrome notification clicks
+chrome.notifications.onClicked.addListener((notificationId) => {
+    console.log('Notification clicked:', notificationId);
+    // Open the extension popup when notification is clicked
+    chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
+});
+
+// Listen for tab updates to inject provider when needed
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
+        console.log(`Tab ${tabId} updated, injecting provider if needed`);
+        // We could inject the provider here programmatically if needed
+    }
+});
+
+// Handle chain changed event
+function handleChainChanged(chainId, sendResponse) {
     state.selectedChainId = chainId;
     saveState();
 
@@ -488,52 +758,6 @@ function handleSiteDisconnected(message, sendResponse) {
     }
 }
 
-// Placeholder for RPC URL mapping
-function getRpcUrlForChain(chainId) {
-    // Add mappings for your supported chains
-    const rpcUrls = {
-        '0x1': 'https://mainnet.infura.io/v3/YOUR_INFURA_KEY', // ETH Mainnet
-        '0x89': 'https://polygon-rpc.com', // POL Mainnet
-        '0x137': 'https://polygon.llamarpc.com', // POL Mainnet
-        '0x80002': 'https://rpc-amoy.polygon.technology', // POL Testnet
-        // Add other chains...
-    };
-    return rpcUrls[chainId];
-}
-
-// Save state to storage
-function saveState() {
-    // Don't save pendingRequests to avoid bloating storage
-    const stateToSave = {
-        isUnlocked: state.isUnlocked,
-        accounts: state.accounts,
-        selectedChainId: state.selectedChainId
-    };
-
-    chrome.storage.local.set({ state: stateToSave });
-}
-
-// Save connected sites to storage
-function saveConnectedSites() {
-    chrome.storage.local.set({ connectedSites: state.connectedSites });
-}
-
-// Save WalletConnect sessions to storage
-function saveWalletConnectSessions() {
-    chrome.storage.local.set({ walletConnectSessions: state.walletConnectSessions });
-}
-
-// Notify all tabs with the same origin
-function notifyConnectedTabs(origin, message) {
-    chrome.tabs.query({}, (tabs) => {
-        tabs.forEach((tab) => {
-            if (tab.url && tab.url.includes(origin)) {
-                chrome.tabs.sendMessage(tab.id, message);
-            }
-        });
-    });
-}
-
 // WalletConnect Handlers
 
 // Handle WalletConnect initialization
@@ -561,7 +785,7 @@ function handleWalletConnectSessionRequest(message, sendResponse) {
     };
 
     // Add to pending requests
-    state.pendingRequests.push(request);
+    state.pendingRequests[requestId] = request;
     saveState();
 
     // Open a popup to display the WalletConnect approval
@@ -580,15 +804,12 @@ function handleWalletConnectApproveSession(message, sendResponse) {
     const { requestId, accounts, chainId } = message;
 
     // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
+    const request = state.pendingRequests[requestId];
 
-    if (requestIndex === -1) {
+    if (!request) {
         sendResponse({ error: 'WalletConnect request not found' });
         return;
     }
-
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
 
     // Create a new WalletConnect session
     const session = {
@@ -615,15 +836,15 @@ function handleWalletConnectRejectSession(message, sendResponse) {
     const { requestId } = message;
 
     // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
+    const request = state.pendingRequests[requestId];
 
-    if (requestIndex === -1) {
+    if (!request) {
         sendResponse({ error: 'WalletConnect request not found' });
         return;
     }
 
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
+    // Remove the request
+    delete state.pendingRequests[requestId];
     saveState();
 
     sendResponse({ success: true });
@@ -650,7 +871,7 @@ function handleWalletConnectCallRequest(message, sendResponse) {
         timestamp: Date.now()
     };
 
-    state.pendingRequests.push(pendingRequest);
+    state.pendingRequests[requestId] = pendingRequest;
     saveState();
 
     // Open a popup to handle the request
@@ -669,16 +890,12 @@ function handleWalletConnectApproveCallRequest(message, sendResponse) {
     const { requestId, result } = message;
 
     // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
+    const request = state.pendingRequests[requestId];
 
-    if (requestIndex === -1) {
+    if (!request) {
         sendResponse({ error: 'WalletConnect call request not found' });
         return;
     }
-
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
-    saveState();
 
     // Send result back to the content script
     // This would normally involve sending a message to the content script
@@ -692,16 +909,12 @@ function handleWalletConnectRejectCallRequest(message, sendResponse) {
     const { requestId, error } = message;
 
     // Find the request
-    const requestIndex = state.pendingRequests.findIndex(req => req.id === requestId);
+    const request = state.pendingRequests[requestId];
 
-    if (requestIndex === -1) {
+    if (!request) {
         sendResponse({ error: 'WalletConnect call request not found' });
         return;
     }
-
-    const request = state.pendingRequests[requestIndex];
-    state.pendingRequests.splice(requestIndex, 1);
-    saveState();
 
     // Send error back to the content script
 
@@ -726,4 +939,9 @@ function handleWalletConnectDisconnect(message, sendResponse) {
 
     // Send response
     sendResponse({ success: true });
+}
+
+// Save WalletConnect sessions to storage
+function saveWalletConnectSessions() {
+    chrome.storage.local.set({ walletConnectSessions: state.walletConnectSessions });
 } 

@@ -10,67 +10,52 @@ console.log('WalletX: Provider injection script starting');
 // Connect to the content script
 function sendMessage(message) {
     return new Promise((resolve, reject) => {
-        try {
-            // Add a unique ID for this message
-            const id = `${message.type}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            message.id = id;
+        // Add a unique ID for this message
+        const id = `${message.type}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        message.id = id;
 
-            console.log('WalletX: Sending message to content script:', message);
+        // Send the message to the content script
+        window.postMessage(message, '*');
 
-            // Send the message to the content script
-            window.postMessage(message, '*');
+        // Set up listener for the response
+        const responseHandler = function (event) {
+            // Only accept messages from this window
+            if (event.source !== window) return;
 
-            // Set up listener for the response
-            const responseHandler = function (event) {
-                // Only accept messages from this window
-                if (event.source !== window) return;
+            // Check if this is a response to our message
+            const isResponse = (
+                (event.data.type === 'WALLETX_CONNECT_RESPONSE' && message.type === 'WALLETX_CONNECT') ||
+                (event.data.type === 'WALLETX_REQUEST_RESPONSE' && message.type === 'WALLETX_REQUEST')
+            ) && event.data.id === id;
 
-                // Skip messages without data or type
-                if (!event.data || !event.data.type) return;
-
-                // Check if this is a response to our message
-                const isResponse = (
-                    (event.data.type === 'WALLETX_CONNECT_RESPONSE' && message.type === 'WALLETX_CONNECT') ||
-                    (event.data.type === 'WALLETX_REQUEST_RESPONSE' && message.type === 'WALLETX_REQUEST')
-                ) && event.data.id === id;
-
-                if (isResponse) {
-                    console.log('WalletX: Received response from content script:', event.data);
-
-                    // Remove the listener to avoid memory leaks
-                    window.removeEventListener('message', responseHandler);
-                    clearTimeout(timeoutId);
-
-                    if (event.data.error) {
-                        console.error('WalletX: Error in response:', event.data.error);
-                        reject(event.data.error);
-                    } else {
-                        resolve(event.data.result || event.data);
-                    }
-                }
-            };
-
-            // Add the listener
-            window.addEventListener('message', responseHandler);
-
-            // Set a timeout to avoid hanging forever
-            const timeoutId = setTimeout(() => {
+            if (isResponse) {
+                // Remove the listener to avoid memory leaks
                 window.removeEventListener('message', responseHandler);
-                console.error('WalletX: Request timed out after 30 seconds:', message);
-                reject(new Error('Request timed out'));
-            }, 30000); // 30 seconds timeout
-        } catch (error) {
-            console.error('WalletX: Error in sendMessage:', error);
-            reject(error);
-        }
+
+                if (event.data.error) {
+                    reject(event.data.error);
+                } else {
+                    resolve(event.data.result || event.data);
+                }
+            }
+        };
+
+        // Add the listener
+        window.addEventListener('message', responseHandler);
+
+        // Set a timeout to avoid hanging forever
+        setTimeout(() => {
+            window.removeEventListener('message', responseHandler);
+            reject(new Error('Request timed out'));
+        }, 30000); // 30 seconds timeout
     });
 }
 
 // Initialize WalletX Provider
 const walletXProvider = {
-    // Identify as WalletX but maintain MetaMask compatibility for DApps
+    // Identify as WalletX but maintain some MetaMask compatibility for dApps
     isWalletX: true,
-    isMetaMask: true, // Set to true for better Uniswap compatibility
+    isMetaMask: false, // Changed to false to distinguish from MetaMask
     isWalletConnect: false,
     isCoinbaseWallet: false,
 

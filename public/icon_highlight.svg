@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="4" result="blur" />
+    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+  </filter>
+  <rect width="128" height="128" rx="24" fill="#293548"/>
+  <g filter="url(#glow)">
+    <path d="M94 42H34C30.6863 42 28 44.6863 28 48V80C28 83.3137 30.6863 86 34 86H94C97.3137 86 100 83.3137 100 80V48C100 44.6863 97.3137 42 94 42Z" stroke="#FFA500" stroke-width="4"/>
+    <path d="M72 64H88C91.3137 64 94 61.3137 94 58V54C94 50.6863 91.3137 48 88 48H72V64Z" fill="#FFA500"/>
+    <rect x="36" y="54" width="24" height="4" rx="2" fill="#FFA500"/>
+    <rect x="36" y="64" width="16" height="4" rx="2" fill="#FFA500"/>
+    <rect x="36" y="74" width="48" height="4" rx="2" fill="#FFA500"/>
+  </g>
+</svg> 

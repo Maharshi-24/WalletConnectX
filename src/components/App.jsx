@@ -3,7 +3,13 @@ import WalletConnect from './WalletConnect.jsx';
 import WalletCreate from './WalletCreate.jsx';
 import WalletVerification from './WalletVerification.jsx';
 import Dashboard from './Dashboard.jsx';
-import { walletExists, getWalletData, clearWalletData } from '../services/storage.jsx';
+import {
+    walletExists,
+    getWalletData,
+    clearWalletData,
+    hasActiveSession,
+    getSessionPassword
+} from '../services/storage.jsx';
 import { FaWallet, FaPlus, FaUnlock, FaShieldAlt } from 'react-icons/fa';
 import { styled } from '@stitches/react';
 
@@ -162,6 +168,11 @@ function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showVerification, setShowVerification] = useState(false);
     const [tempWallet, setTempWallet] = useState(null);
+    const [isLoading, setIsLoading] = useState(true); // Add loading state for session check
+    const [pendingRequest, setPendingRequest] = useState(null);
+
+    // Check if we're in an extension context
+    const isExtensionContext = typeof chrome !== 'undefined' && chrome.storage;
 
     // Apply global styles
     useEffect(() => {
@@ -182,15 +193,89 @@ function App() {
         };
     }, []);
 
-    // Check if user has a wallet stored
+    // Check for pending requests (when in extension context)
     useEffect(() => {
-        const hasWallet = walletExists();
-        if (hasWallet) {
-            // If wallet exists, user is returning, so show connect tab
-            setActiveTab('connect');
-        } else {
-            setActiveTab('create');
+        if (isExtensionContext && chrome.storage) {
+            // Check if there's a pending request in storage
+            chrome.storage.local.get(['currentPendingRequest'], (result) => {
+                if (result.currentPendingRequest) {
+                    console.log('Found pending request in storage:', result.currentPendingRequest);
+                    setPendingRequest(result.currentPendingRequest);
+                }
+            });
+
+            // Listen for new pending requests
+            const messageListener = (message) => {
+                if (message.type === 'PENDING_REQUEST') {
+                    console.log('Received new pending request:', message);
+                    setPendingRequest(message);
+                }
+            };
+
+            chrome.runtime.onMessage.addListener(messageListener);
+
+            return () => {
+                chrome.runtime.onMessage.removeListener(messageListener);
+            };
         }
+    }, [isExtensionContext]);
+
+    // Check for active session and auto-login - this should run FIRST
+    useEffect(() => {
+        const checkActiveSession = async () => {
+            setIsLoading(true);
+            console.log('Checking for active session...');
+
+            try {
+                // Check if there's an active session and a wallet exists
+                if (hasActiveSession()) {
+                    console.log('Active session found, attempting auto-login');
+
+                    if (walletExists()) {
+                        console.log('Wallet data found, retrieving session password');
+
+                        // Get password from session
+                        const sessionPassword = getSessionPassword();
+
+                        if (sessionPassword) {
+                            console.log('Session password retrieved, decrypting wallet data');
+
+                            // Get wallet data using the session password
+                            const walletData = getWalletData(sessionPassword);
+
+                            if (walletData) {
+                                console.log('Auto-login successful!');
+                                // Auto-login the user
+                                setWallet(walletData);
+                                setIsAuthenticated(true);
+                            } else {
+                                console.warn('Failed to decrypt wallet data with session password');
+                            }
+                        } else {
+                            console.warn('Could not retrieve valid session password');
+                        }
+                    } else {
+                        console.warn('No wallet data found despite having an active session');
+                    }
+                } else {
+                    console.log('No active session found, normal login required');
+                }
+            } catch (error) {
+                console.error('Session auto-login failed:', error);
+            } finally {
+                // Determine which tab to show if not logged in
+                if (!isAuthenticated) {
+                    const hasWallet = walletExists();
+                    setActiveTab(hasWallet ? 'connect' : 'create');
+                    console.log(`Setting active tab to: ${hasWallet ? 'connect' : 'create'}`);
+                }
+
+                setIsLoading(false);
+                console.log('Finished session check');
+            }
+        };
+
+        checkActiveSession();
     }, []);
 
     // Handle wallet connection success
@@ -224,11 +309,45 @@ function App() {
         clearWalletData();
     };
 
+    // Handle completion of a pending request
+    const handleRequestComplete = () => {
+        setPendingRequest(null);
+
+        // Also clear from storage
+        if (isExtensionContext && chrome.storage) {
+            chrome.storage.local.remove(['currentPendingRequest']);
+        }
+    };
+
+    // Show loading indicator while checking for session
+    if (isLoading) {
+        return (
+            <AppContainer>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100vh',
+                    gap: '16px'
+                }}>
+                    <FaWallet size={32} color="#FF8A00" />
+                    <div>Loading wallet...</div>
+                </div>
+            </AppContainer>
+        );
+    }
+
     // If verified and authenticated, show dashboard
     if (isAuthenticated && wallet) {
         return (
             <AppContainer>
-                <Dashboard wallet={wallet} onLogout={handleLogout} />
+                <Dashboard
+                    wallet={wallet}
+                    onLogout={handleLogout}
+                    pendingRequest={pendingRequest}
+                    onRequestComplete={handleRequestComplete}
+                />
             </AppContainer>
         );
     }

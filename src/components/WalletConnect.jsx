@@ -5,7 +5,8 @@ import {
     walletExists,
     getWalletData,
     hasStoredPassword,
-    verifyPassword
+    verifyPassword,
+    saveSession
 } from '../services/storage.jsx';
 import * as Form from '@radix-ui/react-form';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -246,6 +247,21 @@ const StrengthText = styled('span', {
     }
 });
 
+// Define the missing InfoBox component
+const InfoBox = styled('div', {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '10px',
+    padding: '12px 16px',
+    backgroundColor: 'rgba(66, 153, 225, 0.1)',
+    border: '1px solid rgba(66, 153, 225, 0.2)',
+    borderRadius: '8px',
+    color: '#3182ce',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    marginBottom: '16px',
+});
+
 function WalletConnect({ onWalletReady }) {
     const [privateKey, setPrivateKey] = useState('');
     const [password, setPassword] = useState('');
@@ -373,6 +389,9 @@ function WalletConnect({ onWalletReady }) {
                 const saved = saveWalletData(walletData, password);
 
                 if (saved) {
+                    // Always save the session now
+                    saveSession(password);
+
                     // Notify parent component
                     onWalletReady(walletData);
                 } else {
@@ -409,6 +428,15 @@ function WalletConnect({ onWalletReady }) {
                         </ErrorAlert>
                     )}
 
+                    <InfoBox>
+                        <Info size={16} />
+                        <div>
+                            {isNewUser
+                                ? 'First time connecting? You\'ll need to create a password to encrypt your private key.'
+                                : 'Welcome back! Enter your private key and password to connect.'}
+                        </div>
+                    </InfoBox>
+
                     <Form.Root onSubmit={handleConnect}>
                         <FormGroup>
                             <Label htmlFor="privateKey">
@@ -422,19 +450,17 @@ function WalletConnect({ onWalletReady }) {
                                     value={privateKey}
                                     onChange={(e) => setPrivateKey(e.target.value)}
                                     placeholder="Enter your private key"
+                                    required
                                     autoComplete="off"
                                 />
                                 <IconButton
                                     type="button"
                                     onClick={togglePrivateKeyVisibility}
+                                    aria-label={showPrivateKey ? "Hide private key" : "Show private key"}
                                 >
                                     {showPrivateKey ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </IconButton>
                             </InputWrapper>
-                            <HelperText>
-                                <Info size={12} />
-                                Your private key is used to import your existing wallet
-                            </HelperText>
                         </FormGroup>
 
                         <FormGroup>
@@ -458,22 +484,6 @@ function WalletConnect({ onWalletReady }) {
                                     </StrengthText>
                                 )}
                             </InputWrapper>
-                            {isNewUser && (
-                                <div>
-                                    <HelperText>
-                                        <Info size={12} />
-                                        This password will encrypt your wallet data
-                                    </HelperText>
-                                    {password && (
-                                        <StrengthBar value={passwordStrength * 20}>
-                                            <StrengthIndicator
-                                                style={{ transform: `translateX(-${100 - passwordStrength * 20}%)` }}
-                                                strength={getPasswordStrengthVariant()}
-                                            />
-                                        </StrengthBar>
-                                    )}
-                                </div>
-                            )}
                         </FormGroup>
 
                         {isNewUser && (
@@ -501,20 +511,10 @@ function WalletConnect({ onWalletReady }) {
 
                         <Button
                             type="submit"
-                            variant="primary"
+                            css={{ marginTop: '24px' }}
                             disabled={isLoading}
                         >
-                            {isLoading ? (
-                                <>
-                                    <Spinner />
-                                    <span>Connecting...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Key size={16} />
-                                    <span>Connect Wallet</span>
-                                </>
-                            )}
+                            {isLoading ? "Connecting..." : "Connect Wallet"}
                         </Button>
                     </Form.Root>
                 </CardContent>

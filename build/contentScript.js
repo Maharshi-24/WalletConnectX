@@ -147,13 +147,6 @@ function handleConnectRequest(message) {
             return;
         }
 
-        // If no response (possible if the background script is handling async), 
-        // don't send a response yet
-        if (!response) {
-            console.log('WalletX: No immediate response from background, waiting for user approval...');
-            return;
-        }
-
         console.log('WalletX: Connection request response:', response);
 
         // Forward the response to the page
@@ -203,13 +196,6 @@ function handleWeb3Request(message) {
                 },
                 id: message.id
             }, '*');
-            return;
-        }
-
-        // If no response (possible if the background script is handling async), 
-        // don't send a response yet
-        if (!response) {
-            console.log('WalletX: No immediate response from background, waiting...');
             return;
         }
 

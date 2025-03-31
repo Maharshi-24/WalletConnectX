@@ -167,7 +167,7 @@ function handleConnectRequest(message, sender, sendResponse) {
     chrome.windows.create({
         url: chrome.runtime.getURL('index.html?request=' + requestId),
         type: 'popup',
-        width: 400,
+        width: 360,
         height: 600
     });
 
@@ -304,7 +304,7 @@ function handleTransactionRequest(message, sender, sendResponse) {
         chrome.windows.create({
             url: chrome.runtime.getURL(`index.html?requestType=transaction&requestId=${requestId}`),
             type: "popup",
-            width: 400,
+            width: 360,
             height: 650 // Adjust height as needed
         });
 
@@ -568,7 +568,7 @@ function handleWalletConnectSessionRequest(message, sendResponse) {
     chrome.windows.create({
         url: chrome.runtime.getURL(`index.html?requestType=walletconnect&requestId=${request.id}`),
         type: 'popup',
-        width: 400,
+        width: 360,
         height: 600
     });
 
@@ -657,7 +657,7 @@ function handleWalletConnectCallRequest(message, sendResponse) {
     chrome.windows.create({
         url: chrome.runtime.getURL(`index.html?requestType=walletconnect_call&requestId=${pendingRequest.id}`),
         type: 'popup',
-        width: 400,
+        width: 360,
         height: 600
     });
 

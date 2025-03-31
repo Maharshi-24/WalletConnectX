@@ -39,7 +39,7 @@ const StyledContent = styled("div", {
     borderRadius: "24px",
     boxShadow: "0 25px 50px -12px rgba(255, 90, 0, 0.1)",
     width: "90%",
-    maxWidth: "480px",
+    maxWidth: "340px",
     padding: 0,
     border: "1px solid rgba(255, 90, 0, 0.2)",
     overflow: "hidden",

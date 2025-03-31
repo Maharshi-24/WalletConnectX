@@ -10,7 +10,7 @@ const fadeIn = keyframes({
 });
 
 const Container = styled('div', {
-    maxWidth: '550px',
+    maxWidth: '340px',
     margin: '0 auto',
     padding: '24px',
     borderRadius: '12px',

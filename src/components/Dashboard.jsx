@@ -599,7 +599,7 @@ function Dashboard({ wallet, onLogout }) {
                             border: 'none',
                             padding: 0,
                             width: '90%',
-                            maxWidth: '420px',
+                            maxWidth: '340px',
                             position: 'fixed',
                             top: '50%',
                             left: '50%',

@@ -9,10 +9,10 @@ const fadeIn = keyframes({
     '100%': { opacity: 1 },
 });
 
-const StyledAppContainer = styled('div', {
-    maxWidth: '550px',
+const Container = styled('div', {
+    maxWidth: '340px',
     margin: '0 auto',
-    padding: '20px',
+    padding: '24px',
     borderRadius: '12px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
     backgroundColor: '#000000',
@@ -225,7 +225,7 @@ function SeedPhrase({ mnemonic, onConfirmed }) {
     };
 
     return (
-        <StyledAppContainer>
+        <Container>
             <StyledAppHeader>
                 <StyledFlexCenter>
                     <FaKey size={22} color="#FF8C00" />
@@ -332,7 +332,7 @@ function SeedPhrase({ mnemonic, onConfirmed }) {
                     </>
                 )}
             </StyledAppContent>
-        </StyledAppContainer>
+        </Container>
     );
 }
 

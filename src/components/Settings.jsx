@@ -323,42 +323,70 @@ const StyledDialogTitle = styled(Dialog.Title, {
     marginBottom: "16px",
 })
 
+// Add animation keyframes
+const slideInUpAnimation = keyframes({
+    "0%": { transform: "translateY(100%)", opacity: 0 },
+    "100%": { transform: "translateY(0)", opacity: 1 }
+});
+
+const slideOutDownAnimation = keyframes({
+    "0%": { transform: "translateY(0)", opacity: 1 },
+    "100%": { transform: "translateY(100%)", opacity: 0 }
+});
+
+const progressAnimation = keyframes({
+    "0%": { width: "100%" },
+    "100%": { width: "0%" }
+});
+
+// Style the toast properly
 const StyledToastRoot = styled(Toast.Root, {
-    backgroundColor: "#0D0D0D",
-    borderRadius: "12px",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    borderRadius: "10px",
+    boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)",
     padding: "12px 16px",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    color: "#ffffff"
-})
-
-const slideIn = keyframes({
-    from: { transform: "translateX(calc(100% + 24px))" },
-    to: { transform: "translateX(0)" },
-})
-
-const hide = keyframes({
-    from: { opacity: 1 },
-    to: { opacity: 0 },
-})
-
-const StyledToastViewport = styled(Toast.Viewport, {
     position: "fixed",
-    bottom: 20,
-    right: 20,
+    bottom: "20px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "#FFFFFF",
+    zIndex: 999,
+    minWidth: "250px",
+    border: "1px solid rgba(255, 128, 0, 0.2)",
+    
+    "&[data-state='open']": {
+        animation: `${slideInUpAnimation} 300ms ease forwards`
+    },
+    
+    "&[data-state='closed']": {
+        animation: `${slideOutDownAnimation} 300ms ease forwards`
+    }
+});
+
+const StyledToastProgressBar = styled("div", {
+    position: "absolute",
+    bottom: "0",
+    left: "0",
+    height: "3px",
+    backgroundColor: "#FF8000",
+    borderBottomLeftRadius: "10px",
+    animation: `${progressAnimation} 3s linear forwards`
+});
+
+const StyledToastIcon = styled("div", {
+    marginRight: "12px",
     display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    width: 320,
-    maxWidth: "100vw",
-    margin: 0,
-    listStyle: "none",
-    zIndex: 2147483647,
-    outline: "none",
-})
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#FF8000"
+});
+
+const StyledToastContent = styled("div", {
+    flex: 1,
+    fontSize: "14px"
+});
 
 const StyledNetworkItem = styled("div", {
     display: "flex",
@@ -479,6 +507,11 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         navigator.clipboard.writeText(text).then(() => {
             setToastMessage(message)
             setIsToastOpen(true)
+            
+            // Close toast after 3 seconds
+            setTimeout(() => {
+                setIsToastOpen(false)
+            }, 3000)
         })
     }
 
@@ -789,15 +822,16 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 </div>
             </StyledContent>
 
-            {/* Toast Notification */}
-            <Toast.Provider swipeDirection="right">
-                <Toast.Root className="ToastRoot" open={isToastOpen} onOpenChange={setIsToastOpen} duration={3000}>
-                    <Toast.Title style={{ fontWeight: 500, display: "flex", alignItems: "center", color: "#FFFFFF", padding: "8px 12px" }}>
-                        <FaCheck style={{ color: "#52c41a", marginRight: "8px" }} />
-                        {toastMessage}
-                    </Toast.Title>
-                </Toast.Root>
-                <StyledToastViewport />
+            {/* Improved Toast Notification */}
+            <Toast.Provider swipeDirection="down">
+                <StyledToastRoot open={isToastOpen} onOpenChange={setIsToastOpen}>
+                    <StyledToastIcon>
+                        <FaCheck size={16} />
+                    </StyledToastIcon>
+                    <StyledToastContent>{toastMessage}</StyledToastContent>
+                    <StyledToastProgressBar />
+                </StyledToastRoot>
+                <Toast.Viewport />
             </Toast.Provider>
 
             {/* Global styles */}

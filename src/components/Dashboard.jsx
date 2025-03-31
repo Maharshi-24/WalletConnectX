@@ -491,31 +491,69 @@ const copyTxHash = (hash) => {
 
 // Download QR code with notification
 const downloadQrCode = () => {
+    // Target the QR code in the receive drawer
     const qrCodeElement = document.querySelector(".qr-code-container svg");
-    if (!qrCodeElement) return;
+    if (!qrCodeElement) {
+        console.error("QR code element not found");
+        showCopyNotification("Error: Could not find QR code");
+        return;
+    }
 
-    const svgData = new XMLSerializer().serializeToString(qrCodeElement);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+    try {
+        // Serialize the SVG to a string
+        const svgData = new XMLSerializer().serializeToString(qrCodeElement);
         
-        const pngFile = canvas.toDataURL("image/png");
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `wallet-${wallet.address.substr(0, 6)}.png`;
-        downloadLink.href = pngFile;
-        downloadLink.click();
+        // Create a canvas element to draw the SVG
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
         
-        setCopySuccess("QR code downloaded!");
-        showCopyNotification("QR code downloaded!");
-        setTimeout(() => setCopySuccess(""), 3000);
-    };
-    
-    img.src = `data:image/svg+xml;base64,${btoa(svgData)}`;
+        // Make the canvas large enough for good quality
+        const scale = 2; // Scale up for better quality
+        canvas.width = qrCodeElement.clientWidth * scale;
+        canvas.height = qrCodeElement.clientHeight * scale;
+        
+        // Create a new image to draw onto the canvas
+        const img = new Image();
+        
+        // When the image loads, draw it to the canvas and create download link
+        img.onload = () => {
+            // Fill with white background first
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the image
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            try {
+                // Convert to PNG
+                const pngFile = canvas.toDataURL("image/png");
+                
+                // Create and trigger download
+                const downloadLink = document.createElement("a");
+                downloadLink.download = `wallet-${wallet?.address ? wallet.address.substring(0, 6) : 'address'}.png`;
+                downloadLink.href = pngFile;
+                downloadLink.click();
+                
+                // Show success notification
+                showCopyNotification("QR code downloaded!");
+            } catch (error) {
+                console.error("Error creating PNG:", error);
+                showCopyNotification("Error downloading QR code");
+            }
+        };
+        
+        // Handle error loading the image
+        img.onerror = (error) => {
+            console.error("Error loading image:", error);
+            showCopyNotification("Error creating QR code image");
+        };
+        
+        // Set the source of the image to the SVG data
+        img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`;
+    } catch (error) {
+        console.error("Error downloading QR code:", error);
+        showCopyNotification("Error downloading QR code");
+    }
 };
 
 // Add a new TransactionsSection component for the Dashboard
@@ -559,42 +597,149 @@ const TransactionsSection = ({ wallet, selectedChain }) => {
             // Check if we're in web mode (not extension context)
             const isWebMode = typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id;
 
-            // If in web mode, immediately use mock data
-            if (isWebMode) {
-                // Simulate network delay for better UX
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                throw new Error("Using mock data in web mode");
-            }
-
             // SIMPLE APPROACH: Use direct, documented API endpoints
             const address = wallet.address;
             let apiUrl = '';
-            let apiKey = '1DN7I4P7KD3BRDP6ASZ37KRMHYQ6WVXD6Q';
-            const offset = 20; // Increase number of transactions per page
+            // Use a fresh API key for Polygonscan
+            let apiKey = 'UEIAV8C4QHYRDBNXCK4JUP1R3VB88EPMRR'; // Updated API key for Polygonscan
+            const offset = 20; // Number of transactions per page
+
+            console.log(`Fetching transactions for ${address} on ${selectedChain.chainName}`);
 
             // Determine correct API URL based on network
             if (selectedChain.chainId === ethereum.chainId) {
-                apiUrl = `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                apiUrl = `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=1DN7I4P7KD3BRDP6ASZ37KRMHYQ6WVXD6Q`;
             } else if (selectedChain.chainId === sepolia.chainId) {
-                apiUrl = `https://api-sepolia.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                apiUrl = `https://api-sepolia.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=1DN7I4P7KD3BRDP6ASZ37KRMHYQ6WVXD6Q`;
             } else if (selectedChain.chainId === polygon.chainId) {
-                apiUrl = `https://api.polygonscan.com/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                // Special handling for Polygon - fetch both normal transactions and internal transactions
+                const normalTxApiUrl = `https://api.polygonscan.com/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                const internalTxApiUrl = `https://api.polygonscan.com/api?module=account&action=txlistinternal&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                
+                console.log("Fetching normal transactions from:", normalTxApiUrl);
+                console.log("Fetching internal transactions from:", internalTxApiUrl);
+                
+                try {
+                    // Fetch both transaction types in parallel
+                    const [normalResponse, internalResponse] = await Promise.all([
+                        fetch(normalTxApiUrl),
+                        fetch(internalTxApiUrl)
+                    ]);
+                    
+                    const normalData = await normalResponse.json();
+                    const internalData = await internalResponse.json();
+                    
+                    console.log("Normal TX API Response:", normalData ? JSON.stringify(normalData).substring(0, 200) + "..." : "No data");
+                    console.log("Internal TX API Response:", internalData ? JSON.stringify(internalData).substring(0, 200) + "..." : "No data");
+                    
+                    // Process and combine both transaction types
+                    let allTransactions = [];
+                    
+                    // Process normal transactions
+                    if (normalData && normalData.status === '1' && Array.isArray(normalData.result)) {
+                        const normalTxs = normalData.result.map(tx => {
+                            try {
+                                return {
+                                    hash: tx.hash || "",
+                                    from: tx.from || "",
+                                    to: tx.to || "",
+                                    value: ethers.BigNumber.from(tx.value || '0'),
+                                    timestamp: parseInt(tx.timeStamp || '0') * 1000,
+                                    gasUsed: ethers.BigNumber.from(tx.gasUsed || '0'),
+                                    status: tx.isError === "0" ? 1 : 0,
+                                    type: (tx.from || "").toLowerCase() === address.toLowerCase() ? "outgoing" : "incoming"
+                                };
+                            } catch (err) {
+                                console.error("Error parsing normal transaction:", err, tx);
+                                return null;
+                            }
+                        }).filter(tx => tx !== null);
+                        
+                        allTransactions = [...normalTxs];
+                    }
+                    
+                    // Process internal transactions
+                    if (internalData && internalData.status === '1' && Array.isArray(internalData.result)) {
+                        const internalTxs = internalData.result.map(tx => {
+                            try {
+                                return {
+                                    hash: tx.hash || "",
+                                    from: tx.from || "",
+                                    to: tx.to || "",
+                                    value: ethers.BigNumber.from(tx.value || '0'),
+                                    timestamp: parseInt(tx.timeStamp || '0') * 1000,
+                                    gasUsed: ethers.BigNumber.from('0'), // Internal txs don't have gas
+                                    status: 1, // Internal txs are usually successful
+                                    type: (tx.from || "").toLowerCase() === address.toLowerCase() ? "outgoing" : "incoming"
+                                };
+                            } catch (err) {
+                                console.error("Error parsing internal transaction:", err, tx);
+                                return null;
+                            }
+                        }).filter(tx => tx !== null);
+                        
+                        // Combine and remove duplicates based on hash
+                        const seen = new Set(allTransactions.map(tx => tx.hash));
+                        for (const tx of internalTxs) {
+                            if (!seen.has(tx.hash)) {
+                                allTransactions.push(tx);
+                                seen.add(tx.hash);
+                            }
+                        }
+                    }
+                    
+                    // Sort by timestamp (newer first)
+                    allTransactions.sort((a, b) => b.timestamp - a.timestamp);
+                    
+                    // Check if we have more data
+                    const totalTxs = allTransactions.length;
+                    console.log(`Found ${totalTxs} total transactions (normal + internal)`);
+                    
+                    if (totalTxs < offset) {
+                        setHasMore(false);
+                    } else {
+                        setHasMore(true);
+                    }
+                    
+                    // Update state based on whether this is a fresh load or paginated load
+                    if (resetData) {
+                        setTransactions(allTransactions);
+                    } else {
+                        setTransactions(prev => [...prev, ...allTransactions]);
+                    }
+                    
+                    // Early return since we've handled the Polygon case specially
+                    setIsLoading(false);
+                    setLoadingMore(false);
+                    return;
+                    
+                } catch (error) {
+                    console.error("Error fetching Polygon transactions:", error);
+                    setError("Failed to fetch Polygon transactions. " + error.message);
+                    setTransactions([]);
+                    setIsLoading(false);
+                    setLoadingMore(false);
+                    return;
+                }
             } else if (selectedChain.chainId === amoy.chainId) {
-                apiUrl = `https://api-amoy.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=${apiKey}`;
+                apiUrl = `https://api-amoy.etherscan.io/api?module=account&action=txlist&address=${address}&page=${pageNum}&offset=${offset}&sort=desc&apikey=1DN7I4P7KD3BRDP6ASZ37KRMHYQ6WVXD6Q`;
             } else {
-                // For other networks, fallback to mock data
-                throw new Error(`Transaction history not available for ${selectedChain.chainName}`);
+                // For unsupported networks, return empty array
+                setTransactions([]);
+                setIsLoading(false);
+                setLoadingMore(false);
+                return;
             }
 
-            // Make a simple fetch request
+            // Make a fetch request to the API for non-Polygon networks
             console.log("Fetching transactions from:", apiUrl);
             const response = await fetch(apiUrl);
             const data = await response.json();
 
-            // Safely log API response
-            console.log("API Response:", data ? "Received data" : "No data");
+            // Log API response
+            console.log("API Response:", data ? JSON.stringify(data).substring(0, 200) + "..." : "No data");
 
-            if (data && data.status === '1' && Array.isArray(data.result)) {
+            if (data && data.status === '1' && Array.isArray(data.result) && data.result.length > 0) {
                 // Process transactions
                 const newTransactions = data.result.map(tx => {
                     try {
@@ -609,7 +754,7 @@ const TransactionsSection = ({ wallet, selectedChain }) => {
                             type: (tx.from || "").toLowerCase() === address.toLowerCase() ? "outgoing" : "incoming"
                         };
                     } catch (err) {
-                        console.error("Error parsing transaction:", err);
+                        console.error("Error parsing transaction:", err, tx);
                         return null;
                     }
                 }).filter(tx => tx !== null);
@@ -617,6 +762,8 @@ const TransactionsSection = ({ wallet, selectedChain }) => {
                 // Check if we have more data
                 if (newTransactions.length < offset) {
                     setHasMore(false);
+                } else {
+                    setHasMore(true);
                 }
 
                 // Update state based on whether this is a fresh load or paginated load
@@ -626,93 +773,26 @@ const TransactionsSection = ({ wallet, selectedChain }) => {
                     setTransactions(prev => [...prev, ...newTransactions]);
                 }
             } else {
-                console.error("API Error Response:", data ? data.message || "Unknown error" : "No data received");
-                // Check if we've reached end of data
+                console.log("No transactions found or API error:", data);
                 setHasMore(false);
                 
-                // If this is the first page and there's an error, use mock data
+                // If this is the first page, show empty state
                 if (pageNum === 1) {
-                    useMockTransactions(resetData);
+                    setTransactions([]);
+                }
+                
+                // Show error if API returned an error message
+                if (data && data.message && data.message !== "No transactions found") {
+                    setError(data.message || "Failed to fetch transactions");
                 }
             }
         } catch (error) {
             console.error("Transaction fetch error:", error.message || "Unknown error");
-
-            // Only show the error message if it's not related to mock data
-            if (error.message !== "Using mock data in web mode") {
-                setError(error.message || "Failed to fetch transactions. Please try again later.");
-            }
-
-            useMockTransactions(resetData);
+            setError(error.message || "Failed to fetch transactions. Please try again later.");
+            setTransactions([]);
         } finally {
             setIsLoading(false);
             setLoadingMore(false);
-        }
-    };
-
-    // Helper function to create mock transactions
-    const useMockTransactions = (resetData = false) => {
-        // FALLBACK: Always show some mock transactions for better UX
-        const mockTimestamp = Date.now();
-
-        // Create network-specific mock transactions
-        let mockValue;
-        try {
-            switch (selectedChain.chainId) {
-                case ethereum.chainId:
-                    mockValue = "0.05";
-                    break;
-                case sepolia.chainId:
-                    mockValue = "0.1";
-                    break;
-                case polygon.chainId:
-                    mockValue = "25.5";
-                    break;
-                case amoy.chainId:
-                    mockValue = "10.0";
-                    break;
-                default:
-                    mockValue = "0.1";
-            }
-
-            // Generate more mock transactions
-            const mockTransactions = [];
-            
-            // Add random transactions over the past month
-            for (let i = 0; i < 10; i++) {
-                const isOutgoing = Math.random() > 0.5;
-                const txValue = (parseFloat(mockValue) * (Math.random() * 2 + 0.1)).toFixed(4);
-                const dayOffset = Math.floor(Math.random() * 30); // Random day in the past month
-                const hourOffset = Math.floor(Math.random() * 24); // Random hour in the day
-                
-                mockTransactions.push({
-                    hash: "0x" + Math.random().toString(16).substring(2, 10) + "0".repeat(56),
-                    from: isOutgoing ? wallet.address : "0x" + Math.random().toString(16).substring(2, 42),
-                    to: isOutgoing ? "0x" + Math.random().toString(16).substring(2, 42) : wallet.address,
-                    value: ethers.utils.parseEther(txValue),
-                    timestamp: mockTimestamp - ((dayOffset * 24 + hourOffset) * 60 * 60 * 1000),
-                    gasUsed: ethers.BigNumber.from((21000 + Math.floor(Math.random() * 30000)).toString()),
-                    status: Math.random() > 0.1 ? 1 : 0, // 10% chance of failed tx
-                    type: isOutgoing ? "outgoing" : "incoming"
-                });
-            }
-            
-            // Sort by timestamp (newest first)
-            mockTransactions.sort((a, b) => b.timestamp - a.timestamp);
-
-            if (resetData) {
-                setTransactions(mockTransactions);
-            } else {
-                setTransactions(prev => [...prev, ...mockTransactions]);
-            }
-            
-            // After first page of mock data, pretend there's no more
-            if (page > 1) {
-                setHasMore(false);
-            }
-        } catch (error) {
-            console.error("Error creating mock transactions:", error);
-            setTransactions([]);
         }
     };
 
@@ -803,7 +883,7 @@ const TransactionsSection = ({ wallet, selectedChain }) => {
                         <LoadingIndicator />
                         <Text css={{ marginLeft: "8px" }}>Loading transactions...</Text>
                     </div>
-                ) : error && transactions.length === 0 ? (
+                ) : error ? (
                     <div style={{ 
                         padding: "16px", 
                         color: "var(--colors-textSecondary)",

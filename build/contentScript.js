@@ -32,8 +32,30 @@ function injectScript() {
         script.onload = function () {
             this.remove();
             // Notify the page that the provider is ready
-            window.postMessage({ type: 'WALLETX_PROVIDER_READY', origin: window.location.origin }, '*');
-            console.log('WalletX: Provider injected successfully');
+            window.postMessage({ 
+                type: 'WALLETX_PROVIDER_READY', 
+                origin: window.location.origin,
+                extensionId: chrome.runtime.id 
+            }, '*');
+            console.log('WalletX: Provider injected successfully, extension ID:', chrome.runtime.id);
+            
+            // Dispatch a custom event for applications that listen for wallet providers
+            const initScript = document.createElement('script');
+            initScript.textContent = `
+                try {
+                    window.dispatchEvent(new CustomEvent('wallet_extension_initialized', { 
+                        detail: { 
+                            name: 'WalletX',
+                            id: '${chrome.runtime.id}'
+                        } 
+                    }));
+                    console.log('WalletX: Provider initialization event dispatched');
+                } catch(e) {
+                    console.error('WalletX: Error dispatching initialization event', e);
+                }
+            `;
+            (document.head || document.documentElement).appendChild(initScript);
+            initScript.remove();
         };
         (document.head || document.documentElement).appendChild(script);
     } catch (error) {
@@ -66,6 +88,8 @@ window.addEventListener('message', function (event) {
             handleWeb3Request(event.data);
         } else if (messageType === 'WALLETX_GET_STATE' || messageType === 'CROSS_NET_WALLET_GET_STATE') {
             getWalletState();
+        } else if (messageType === 'WALLETX_GET_CONNECTED_WALLET') {
+            getConnectedWallet(event.data);
         }
     }
 }, false);
@@ -328,4 +352,94 @@ async function initializeState() {
 }
 
 // Initialize state when the content script loads
-initializeState(); 
+initializeState();
+
+// Function to get the connected wallet for this site
+function getConnectedWallet(message) {
+    const origin = window.location.origin;
+    
+    // Add origin to message
+    const requestMessage = {
+        ...message,
+        origin
+    };
+    
+    console.log('WalletX: Getting connected wallet for site:', origin);
+    
+    // Send to background script
+    chrome.runtime.sendMessage(requestMessage, (response) => {
+        if (chrome.runtime.lastError) {
+            console.error('WalletX: Error getting connected wallet:', chrome.runtime.lastError);
+            window.postMessage({
+                type: 'WALLETX_CONNECTED_WALLET_RESPONSE',
+                success: false,
+                error: {
+                    code: -32603,
+                    message: 'Internal error: ' + chrome.runtime.lastError.message
+                },
+                id: message.id
+            }, '*');
+            return;
+        }
+        
+        console.log('WalletX: Connected wallet response:', response);
+        
+        // Forward the response to the page
+        window.postMessage({
+            type: 'WALLETX_CONNECTED_WALLET_RESPONSE',
+            success: response.success,
+            address: response.address,
+            chainId: response.chainId,
+            error: response.error,
+            id: message.id
+        }, '*');
+    });
+}
+
+// Send wallet state to page
+function sendWalletState() {
+  chrome.storage.local.get(['state', 'accounts'], (result) => {
+    const state = result.state || {};
+    const storedAccounts = result.accounts || [];
+    
+    console.log('ContentScript: Current state:', state);
+    console.log('ContentScript: Stored accounts:', storedAccounts);
+    
+    // Always use the stored accounts first, then fall back to state accounts
+    const accounts = storedAccounts.length ? storedAccounts : (state.accounts || []);
+    
+    // Check if this origin is in connected sites
+    const isConnected = state.connectedSites && 
+      state.connectedSites[window.location.origin];
+    
+    // Get the real wallet address (not a random one)
+    const walletAddress = accounts.length ? accounts[0] : null;
+    
+    const walletState = {
+      isUnlocked: state.isUnlocked || false,
+      isConnected: !!isConnected,
+      address: isConnected ? walletAddress : null,
+      chainId: state.selectedChainId || '0x1'
+    };
+    
+    console.log('ContentScript: Sending wallet state to page:', walletState);
+    
+    window.postMessage({
+      type: 'WALLETX_STATE_UPDATE',
+      payload: walletState
+    }, '*');
+  });
+}
+
+// Check wallet state periodically and on navigation
+sendWalletState();
+setInterval(sendWalletState, 3000);
+
+// Listen for state changes from background
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'STATE_UPDATE') {
+    console.log('ContentScript: Received state update, syncing with page');
+    sendWalletState();
+  }
+  return true;
+}); 

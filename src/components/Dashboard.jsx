@@ -746,14 +746,20 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                 {/* Action Buttons */}
                 <Flex justify="between" gap="3" css={{ marginBottom: '$4' }}>
                     <Button
-                        variant="primary"
+                        variant="outline"
                         onClick={() => setShowSendTransaction(true)}
                         css={{
                             flex: 1,
                             padding: '$3',
                             gap: '$2',
                             transition: 'all 0.2s ease-in-out',
-                            '&:hover': { transform: 'scale(1.02)' }
+                            backgroundColor: '$primary',
+                            borderColor: '$primary',
+                            color: 'white',
+                            '&:hover': { 
+                                transform: 'scale(1.02)',
+                                backgroundColor: '$primaryHover'
+                            }
                         }}
                     >
                         <ArrowRightLeft size={16} />

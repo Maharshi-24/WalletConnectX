@@ -388,12 +388,12 @@ function handleWeb3Request(message, sender, sendResponse) {
             const request = {
                 id: message.id || `conn_${Date.now()}`,
                 type: 'connect',
-                origin,
+        origin,
                 method,
                 favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
                 title: message.title || (sender.tab ? sender.tab.title : origin),
-                timestamp: Date.now()
-            };
+        timestamp: Date.now()
+    };
 
             // Store the request
             state.pendingRequests[request.id] = request;
@@ -537,8 +537,8 @@ function handleWeb3Request(message, sender, sendResponse) {
             result: '0x' + Math.floor(Math.random() * 10000000).toString(16),
             method
         });
-        return;
-    }
+            return;
+        }
 
     // Default response for unsupported methods
     console.log(`${EXTENSION_NAME}: Unsupported method ${method}, returning error`);
@@ -623,7 +623,7 @@ function openExtensionPopup(request) {
                 console.log(`${EXTENSION_NAME}: Set current pending request and highlighted icon for user to click`);
             }
         );
-    } catch (error) {
+        } catch (error) {
         console.error(`${EXTENSION_NAME}: Error in openExtensionPopup:`, error);
         // As a fallback, show a notification
         showConnectionNotification(request);

@@ -23,6 +23,8 @@ const StyledCard = styled('div', {
     color: '#fff',
     overflow: 'hidden',
     border: '1px solid #222',
+    width: '100%',
+    maxWidth: '400px',
 });
 
 const CardHeader = styled('div', {
@@ -40,6 +42,8 @@ const CardTitle = styled('h2', {
 
 const CardContent = styled('div', {
     padding: '20px',
+    width: '100%',
+    maxWidth: '400px',
 });
 
 const Button = styled('button', {

@@ -255,8 +255,8 @@ function WalletVerification({ wallet, onContinue, onCancel }) {
                         </>
                     ) : (
                         <>
-                            <FaShieldAlt />
-                            <span>Continue to Wallet</span>
+                            <FaCheckCircle />
+                            <span>Continue</span>
                         </>
                     )}
                 </StyledButton>

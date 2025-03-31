@@ -34,9 +34,14 @@ import { styled, keyframes } from "@stitches/react"
 
 // Styled components with Stitches
 const StyledContainer = styled("div", {
-    maxWidth: "auto",
+    width: "100%",
+    maxWidth: "400px",
     margin: "0 auto",
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    backgroundColor: "#000000",
+    color: "#ffffff",
+    height: "100%",
+    minHeight: "100vh"
 })
 
 const StyledHeader = styled("header", {
@@ -44,13 +49,36 @@ const StyledHeader = styled("header", {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottom: "1px solid $border",
-    backgroundColor: "$secondary",
-    color: "$text"
+    borderBottom: "1px solid rgba(255, 128, 0, 0.2)",
+    backgroundColor: "#0D0D0D",
+    color: "#ffffff"
 })
 
 const StyledContent = styled("div", {
     padding: "16px",
+    backgroundColor: "#000000",
+    color: "#ffffff",
+    '&::-webkit-scrollbar': {
+        width: '6px',
+        height: '6px'
+    },
+    '&::-webkit-scrollbar-track': {
+        background: 'rgba(0, 0, 0, 0.05)',
+        borderRadius: '10px'
+    },
+    '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(255, 128, 0, 0.5)',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 128, 0, 0.2)',
+        backgroundClip: 'padding-box'
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+        background: 'rgba(255, 128, 0, 0.7)',
+        border: '1px solid rgba(255, 128, 0, 0.3)'
+    },
+    '&::-webkit-scrollbar-corner': {
+        background: 'transparent'
+    }
 })
 
 const StyledCard = styled("div", {
@@ -80,8 +108,9 @@ const StyledCardHeader = styled("div", {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    background: "$surface",
-    borderBottom: "1px solid $border",
+    background: "#0D0D0D",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+    color: "#ffffff"
 })
 
 const StyledCardTitle = styled("h2", {
@@ -163,16 +192,18 @@ const StyledTabs = styled(Tabs.Root, {
     display: "flex",
     flexDirection: "column",
     width: "100%",
-    maxWidth: "100%"
+    maxWidth: "400px"
 })
 
 const StyledTabsList = styled(Tabs.List, {
     flexShrink: 0,
     display: "flex",
-    borderBottom: "1px solid #eaecef",
+    borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
     marginBottom: "16px",
     overflowX: "auto",
-    width: "100%"
+    width: "100%",
+    maxWidth: "400px",
+    backgroundColor: "#0D0D0D"
 })
 
 const fadeIn = keyframes({
@@ -191,7 +222,7 @@ const StyledTabsTrigger = styled(Tabs.Trigger, {
     justifyContent: "center",
     fontSize: 14,
     gap: "6px",
-    color: "#555",
+    color: "rgba(255, 255, 255, 0.6)",
     userSelect: "none",
     "&:hover": { color: "#FF8000" },
     '&[data-state="active"]': {
@@ -269,7 +300,7 @@ const slideUp = keyframes({
 })
 
 const StyledDialogContent = styled(Dialog.Content, {
-    backgroundColor: "$secondary",
+    backgroundColor: "#0D0D0D",
     borderRadius: "16px",
     boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
     position: "fixed",
@@ -282,7 +313,7 @@ const StyledDialogContent = styled(Dialog.Content, {
     padding: "24px",
     animation: `${slideUp} 250ms cubic-bezier(0.16, 1, 0.3, 1)`,
     "&:focus": { outline: "none" },
-    color: "$text"
+    color: "#ffffff"
 })
 
 const StyledDialogTitle = styled(Dialog.Title, {
@@ -293,15 +324,15 @@ const StyledDialogTitle = styled(Dialog.Title, {
 })
 
 const StyledToastRoot = styled(Toast.Root, {
-    backgroundColor: "$secondary",
+    backgroundColor: "#0D0D0D",
     borderRadius: "12px",
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
     padding: "12px 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    border: "1px solid $border",
-    color: "$text"
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    color: "#ffffff"
 })
 
 const slideIn = keyframes({
@@ -338,7 +369,7 @@ const StyledNetworkItem = styled("div", {
     cursor: "pointer",
     transition: "background 0.2s ease",
     "&:hover": {
-        background: "$surface",
+        background: "#1A1A1A",
     },
     variants: {
         active: {
@@ -386,7 +417,7 @@ const StyledTransactionIcon = styled("div", {
 })
 
 const StyledInfoBox = styled("div", {
-    background: "$surface",
+    background: "#0D0D0D",
     padding: "12px 16px",
     borderRadius: "12px",
     fontSize: "14px",
@@ -394,7 +425,7 @@ const StyledInfoBox = styled("div", {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    color: "$text",
+    color: "#ffffff",
     variants: {
         monospace: {
             true: {
@@ -405,11 +436,17 @@ const StyledInfoBox = styled("div", {
             true: {
                 cursor: "pointer",
                 "&:hover": {
-                    background: "$surfaceHover",
+                    background: "#1A1A1A",
                 },
             },
         },
     },
+    "& span.private-key": {
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        maxWidth: "calc(100% - 30px)",
+    }
 })
 
 const StyledQrContainer = styled("div", {
@@ -425,9 +462,6 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const [availableChains, setAvailableChains] = useState([])
     const [currentNetwork, setCurrentNetwork] = useState(selectedChain || ethereum)
     const [activeTab, setActiveTab] = useState("wallet")
-    const [transactions, setTransactions] = useState([])
-    const [isLoadingTx, setIsLoadingTx] = useState(false)
-    const [txError, setTxError] = useState("")
     const [isToastOpen, setIsToastOpen] = useState(false)
     const [toastMessage, setToastMessage] = useState("")
 
@@ -436,19 +470,6 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         const chains = Object.values(CHAINS_CONFIG)
         setAvailableChains(chains)
     }, [])
-
-    // Load transactions when transactions tab is active or network changes
-    useEffect(() => {
-        if (activeTab === "transactions") {
-            fetchRecentTransactions()
-        }
-    }, [activeTab, currentNetwork, wallet.address])
-
-    // Format the address to show only first and last few characters
-    const formatAddress = (address) => {
-        if (!address) return ""
-        return `${address.substring(0, 9)}...${address.substring(address.length - 6)}`
-    }
 
     const togglePrivateKey = () => {
         setShowPrivateKey(!showPrivateKey)
@@ -468,196 +489,6 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         }
     }
 
-    // Function to fetch recent transactions
-    const fetchRecentTransactions = async () => {
-        setIsLoadingTx(true);
-        setTxError("");
-
-        try {
-            // Check if we're in web mode (not extension context)
-            const isWebMode = typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id;
-
-            // If in web mode, immediately use mock data
-            if (isWebMode) {
-                // Simulate network delay for better UX
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                throw new Error("Using mock data in web mode");
-            }
-
-            // SIMPLE APPROACH: Use direct, documented API endpoints
-            const address = wallet.address;
-            let apiUrl = '';
-            let apiKey = '1DN7I4P7KD3BRDP6ASZ37KRMHYQ6WVXD6Q';
-
-            // Determine correct API URL based on network
-            if (currentNetwork.chainId === ethereum.chainId) {
-                apiUrl = `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&page=1&offset=10&sort=desc&apikey=${apiKey}`;
-            } else if (currentNetwork.chainId === sepolia.chainId) {
-                apiUrl = `https://api-sepolia.etherscan.io/api?module=account&action=txlist&address=${address}&page=1&offset=10&sort=desc&apikey=${apiKey}`;
-            } else if (currentNetwork.chainId === polygon.chainId) {
-                apiUrl = `https://api.polygonscan.com/api?module=account&action=txlist&address=${address}&page=1&offset=10&sort=desc&apikey=${apiKey}`;
-            } else if (currentNetwork.chainId === amoy.chainId) {
-                apiUrl = `https://api-amoy.etherscan.io/api?module=account&action=txlist&address=${address}&page=1&offset=10&sort=desc&apikey=${apiKey}`;
-            } else {
-                // For other networks, fallback to mock data
-                throw new Error(`Transaction history not available for ${currentNetwork.chainName}`);
-            }
-
-            // Make a simple fetch request
-            console.log("Fetching transactions from:", apiUrl);
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-
-            console.log("API Response:", data);
-
-            if (data.status === '1' && Array.isArray(data.result)) {
-                // Process transactions
-                const transactions = data.result.map(tx => ({
-                    hash: tx.hash,
-                    from: tx.from,
-                    to: tx.to,
-                    value: ethers.BigNumber.from(tx.value || '0'),
-                    timestamp: parseInt(tx.timeStamp || '0') * 1000,
-                    gasUsed: ethers.BigNumber.from(tx.gasUsed || '0'),
-                    status: tx.isError === "0" ? 1 : 0,
-                    type: tx.from.toLowerCase() === address.toLowerCase() ? "outgoing" : "incoming"
-                }));
-
-                setTransactions(transactions);
-            } else {
-                console.error("API Error Response:", data);
-
-                // Always provide a fallback
-                throw new Error(data.message || "Could not fetch transactions");
-            }
-        } catch (error) {
-            console.error("Transaction fetch error:", error);
-
-            // Only show the error message if it's not related to mock data
-            if (error.message !== "Using mock data in web mode") {
-                setTxError(error.message || "Failed to fetch transactions. Please try again later.");
-            }
-
-            // FALLBACK: Always show some mock transactions for better UX
-            const mockTimestamp = Date.now();
-
-            // Create network-specific mock transactions
-            let mockValue, mockCurrency;
-            switch (currentNetwork.chainId) {
-                case ethereum.chainId:
-                    mockValue = "0.05";
-                    mockCurrency = "ETH";
-                    break;
-                case sepolia.chainId:
-                    mockValue = "0.1";
-                    mockCurrency = "ETH";
-                    break;
-                case polygon.chainId:
-                    mockValue = "25.5";
-                    mockCurrency = "MATIC";
-                    break;
-                case amoy.chainId:
-                    mockValue = "10.0";
-                    mockCurrency = "MATIC";
-                    break;
-                default:
-                    mockValue = "0.1";
-                    mockCurrency = currentNetwork.currencySymbol;
-            }
-
-            const mockTransactions = [
-                {
-                    hash: "0x" + "1".repeat(64),
-                    from: wallet.address,
-                    to: "0x" + "2".repeat(40),
-                    value: ethers.utils.parseEther(mockValue),
-                    timestamp: mockTimestamp - 1000 * 60 * 10, // 10 minutes ago
-                    gasUsed: ethers.BigNumber.from("21000"),
-                    status: 1,
-                    type: "outgoing"
-                },
-                {
-                    hash: "0x" + "3".repeat(64),
-                    from: "0x" + "4".repeat(40),
-                    to: wallet.address,
-                    value: ethers.utils.parseEther(mockValue),
-                    timestamp: mockTimestamp - 1000 * 60 * 60, // 1 hour ago
-                    gasUsed: ethers.BigNumber.from("21000"),
-                    status: 1,
-                    type: "incoming"
-                },
-                {
-                    hash: "0x" + "5".repeat(64),
-                    from: wallet.address,
-                    to: "0x" + "6".repeat(40),
-                    value: ethers.utils.parseEther((parseFloat(mockValue) * 0.75).toString()),
-                    timestamp: mockTimestamp - 1000 * 60 * 60 * 5, // 5 hours ago
-                    gasUsed: ethers.BigNumber.from("21000"),
-                    status: 1,
-                    type: "outgoing"
-                },
-                {
-                    hash: "0x" + "7".repeat(64),
-                    from: "0x" + "8".repeat(40),
-                    to: wallet.address,
-                    value: ethers.utils.parseEther((parseFloat(mockValue) * 1.5).toString()),
-                    timestamp: mockTimestamp - 1000 * 60 * 60 * 24, // 1 day ago
-                    gasUsed: ethers.BigNumber.from("21000"),
-                    status: 1,
-                    type: "incoming"
-                }
-            ];
-
-            // Always set some transactions to display
-            setTransactions(mockTransactions);
-        } finally {
-            setIsLoadingTx(false);
-        }
-    };
-
-    // Format timestamp to readable date/time
-    const formatTimestamp = (timestamp) => {
-        const date = new Date(timestamp)
-        return date.toLocaleString()
-    }
-
-    // Format transaction time relative to now
-    const formatTimeAgo = (timestamp) => {
-        const now = new Date()
-        const txTime = new Date(timestamp)
-        const diffMs = now - txTime
-        const diffMins = Math.floor(diffMs / 60000)
-
-        if (diffMins < 60) {
-            return `${diffMins} min${diffMins !== 1 ? "s" : ""} ago`
-        }
-
-        const diffHours = Math.floor(diffMins / 60)
-        if (diffHours < 24) {
-            return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`
-        }
-
-        return formatTimestamp(timestamp)
-    }
-
-    // Get block explorer URL for the current network
-    const getExplorerUrl = (txHash) => {
-        let baseUrl = "https://etherscan.io"
-
-        if (currentNetwork.chainId === sepolia.chainId) {
-            baseUrl = "https://sepolia.etherscan.io"
-        } else if (currentNetwork.chainId === polygon.chainId) {
-            baseUrl = "https://polygonscan.com"
-        } else if (currentNetwork.chainId === amoy.chainId) {
-            baseUrl = "https://amoy.etherscan.io"
-        } else if (currentNetwork.chainId === dojima.chainId) {
-            baseUrl = "https://explorer.dojima.network"
-        }
-
-        return `${baseUrl}/tx/${txHash}`
-    }
-
-    // Download QR code
     const downloadQrCode = () => {
         const canvas = document.querySelector(".qr-code-container canvas")
         if (canvas) {
@@ -673,7 +504,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const renderWalletInfo = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
+                <StyledCardTitle style={{ color: "#FF8000" }}>
                     <FaWallet style={{ color: "#FF8000" }} />
                     Wallet Information
                 </StyledCardTitle>
@@ -681,7 +512,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
 
             <StyledCardBody style={{ width: "100%" }}>
                 <div style={{ marginBottom: "16px", width: "100%" }}>
-                    <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "8px" }}>Wallet Address</div>
+                    <div style={{ fontSize: "14px", color: "#999999", marginBottom: "8px" }}>Wallet Address</div>
                     <StyledInfoBox style={{ width: "100%" }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{wallet.address}</span>
                         <div style={{ display: "flex", gap: "8px" }}>
@@ -703,6 +534,9 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                     <StyledDialogOverlay />
                                     <StyledDialogContent>
                                         <StyledDialogTitle>Receive {currentNetwork.currencySymbol}</StyledDialogTitle>
+                                        <Dialog.Description style={{ display: "none" }}>
+                                            Scan this QR code to receive cryptocurrency
+                                        </Dialog.Description>
                                         <div className="qr-code-container" style={{ textAlign: "center", marginBottom: "16px" }}>
                                             <QRCodeSVG
                                                 value={`ethereum:${wallet.address}`}
@@ -730,7 +564,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                             >
                                                 {wallet.address}
                                             </div>
-                                            <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)" }}>
+                                            <div style={{ fontSize: "14px", color: "#999999" }}>
                                                 Scan this QR code to receive {currentNetwork.currencySymbol}
                                             </div>
                                         </div>
@@ -768,33 +602,31 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 </div>
 
                 <div style={{ width: "100%" }}>
-                    <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "8px" }}>Private Key</div>
-                    <StyledInfoBox style={{ width: "100%" }}>
-                        {showPrivateKey ? (
-                            <>
-                                <span style={{ wordBreak: "break-all" }}>{wallet.privateKey}</span>
-                                <div style={{ display: "flex", gap: "8px" }}>
-                                    <StyledButton
-                                        variant="icon"
-                                        size="small"
-                                        onClick={() => copyToClipboard(wallet.privateKey, "Private key copied!")}
-                                        aria-label="Copy private key"
-                                    >
-                                        <FaCopy size={14} />
-                                    </StyledButton>
-                                    <StyledButton variant="icon" size="small" onClick={togglePrivateKey} aria-label="Hide private key">
-                                        <FaEyeSlash size={14} />
-                                    </StyledButton>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <span style={{ fontFamily: "monospace" }}>•••••••••••••••••••••••••••••••••••••••••••</span>
-                                <StyledButton variant="icon" size="small" onClick={togglePrivateKey} aria-label="Show private key">
-                                    <FaEye size={14} />
+                    <div style={{ fontSize: "14px", color: "#999999", marginBottom: "8px" }}>Private Key</div>
+                    <StyledInfoBox monospace>
+                        <span className="private-key" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {showPrivateKey ? wallet.privateKey : "•".repeat(40)}
+                        </span>
+                        <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                            {showPrivateKey && (
+                                <StyledButton
+                                    variant="icon"
+                                    size="small"
+                                    onClick={() => copyToClipboard(wallet.privateKey, "Private key copied!")}
+                                    aria-label="Copy private key"
+                                >
+                                    <FaCopy size={14} />
                                 </StyledButton>
-                            </>
-                        )}
+                            )}
+                            <StyledButton
+                                variant="icon"
+                                size="small"
+                                onClick={togglePrivateKey}
+                                aria-label={showPrivateKey ? "Hide private key" : "Show private key"}
+                            >
+                                {showPrivateKey ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+                            </StyledButton>
+                        </div>
                     </StyledInfoBox>
                 </div>
 
@@ -808,119 +640,18 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         </StyledCard>
     )
 
-    // Transactions Section
-    const renderTransactionsSection = () => (
-        <StyledCard>
-            <StyledCardHeader>
-                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
-                    <FaExchangeAlt style={{ color: "#FF8000" }} />
-                    Recent Transactions
-                </StyledCardTitle>
-                <StyledButton variant="secondary" size="small" onClick={fetchRecentTransactions} disabled={isLoadingTx}>
-                    {isLoadingTx ? "Loading..." : "Refresh"}
-                </StyledButton>
-            </StyledCardHeader>
-
-            <StyledCardBody style={{ width: "100%" }}>
-                {isLoadingTx ? (
-                    <div style={{ textAlign: "center", padding: "32px 0", width: "100%" }}>
-                        <div className="loading-spinner" style={{ marginBottom: "8px" }}></div>
-                        <div>Loading transactions...</div>
-                    </div>
-                ) : txError ? (
-                    <StyledAlert variant="danger">
-                        <FaExclamationTriangle />
-                        <div>{txError}</div>
-                    </StyledAlert>
-                ) : transactions.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "32px 0", color: "var(--colors-textSecondary)", width: "100%" }}>
-                        <p>No transactions found in the last 24 hours</p>
-                        <p style={{ fontSize: "13px" }}>
-                            Transactions will appear here when you send or receive {currentNetwork.currencySymbol}
-                        </p>
-                    </div>
-                ) : (
-                    <div style={{ width: "100%" }}>
-                        {transactions.map((tx, index) => (
-                            <StyledTransactionItem key={tx.hash} style={{ width: "100%" }}>
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                    <StyledTransactionIcon type={tx.type}>
-                                        {tx.type === "outgoing" ? <FaArrowUp /> : <FaArrowDown />}
-                                    </StyledTransactionIcon>
-                                    <div>
-                                        <div style={{ fontWeight: 500 }}>
-                                            {tx.type === "outgoing" ? "Sent to " : "Received from "}
-                                            <span style={{ fontFamily: "monospace" }}>
-                                                {formatAddress(tx.type === "outgoing" ? tx.to : tx.from)}
-                                            </span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                fontSize: "12px",
-                                                color: "var(--colors-textSecondary)",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                marginTop: "2px",
-                                            }}
-                                        >
-                                            <FaClock size={10} style={{ marginRight: "4px" }} /> {formatTimeAgo(tx.timestamp)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: "right" }}>
-                                    <div
-                                        style={{
-                                            color: tx.type === "outgoing" ? "#cf1322" : "#389e0d",
-                                            fontWeight: 500,
-                                        }}
-                                    >
-                                        {tx.type === "outgoing" ? "-" : "+"}
-                                        {ethers.utils.formatEther(tx.value)} {currentNetwork.currencySymbol}
-                                    </div>
-                                    <a
-                                        href={getExplorerUrl(tx.hash)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            fontSize: "12px",
-                                            color: "var(--colors-primary)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "flex-end",
-                                            marginTop: "2px",
-                                        }}
-                                    >
-                                        View <FaExternalLinkAlt size={10} style={{ marginLeft: "4px" }} />
-                                    </a>
-                                </div>
-                            </StyledTransactionItem>
-                        ))}
-                    </div>
-                )}
-
-                {transactions.length > 0 && (
-                    <div style={{ marginTop: "16px", textAlign: "center", color: "var(--colors-textSecondary)", fontSize: "13px", width: "100%" }}>
-                        Showing transactions from the last 24 hours.
-                        <br />
-                        Full history can be viewed on {currentNetwork.chainName}'s block explorer.
-                    </div>
-                )}
-            </StyledCardBody>
-        </StyledCard>
-    )
-
     // Network Settings Section
     const renderNetworkSettings = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
+                <StyledCardTitle style={{ color: "#FF8000" }}>
                     <FaNetworkWired style={{ color: "#FF8000" }} />
                     Network Settings
                 </StyledCardTitle>
             </StyledCardHeader>
 
             <StyledCardBody style={{ width: "100%" }}>
-                <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "12px" }}>Select Default Network</div>
+                <div style={{ fontSize: "14px", color: "#999999", marginBottom: "12px" }}>Select Default Network</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                     {availableChains.map((chain) => (
                         <StyledNetworkItem
@@ -947,7 +678,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 500 }}>{chain.chainName}</div>
-                                    <div style={{ fontSize: "12px", color: "var(--colors-textSecondary)" }}>
+                                    <div style={{ fontSize: "12px", color: "#999999" }}>
                                         {chain.chainType} - {chain.currencySymbol}
                                     </div>
                                 </div>
@@ -968,7 +699,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const renderSecuritySettings = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
+                <StyledCardTitle style={{ color: "#FF8000" }}>
                     <FaShieldAlt style={{ color: "#FF8000" }} />
                     Security
                 </StyledCardTitle>
@@ -1013,8 +744,8 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                         onClick={onBack}
                         style={{ 
                             marginRight: "12px",
-                            backgroundColor: "var(--colors-surface)",
-                            color: "var(--colors-primary)",
+                            backgroundColor: "#1A1A1A",
+                            color: "#FF8000",
                             padding: "10px",
                             borderRadius: "50%"
                         }}
@@ -1022,7 +753,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                     >
                         <FaArrowLeft size={14} />
                     </StyledButton>
-                    <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 600, color: "var(--colors-primary)" }}>Settings</h1>
+                    <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 600, color: "#FF8000" }}>Settings</h1>
                 </div>
             </StyledHeader>
 
@@ -1033,15 +764,12 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                             <FaWallet style={{ marginRight: "6px" }} />
                             Wallet
                         </StyledTabsTrigger>
-                        <StyledTabsTrigger value="transactions">
-                            <FaExchangeAlt style={{ marginRight: "6px" }} />
-                            Transactions
-                        </StyledTabsTrigger>
-
+                        
                         <StyledTabsTrigger value="network">
                             <FaNetworkWired style={{ marginRight: "6px" }} />
                             Networks
                         </StyledTabsTrigger>
+                        
                         <StyledTabsTrigger value="security">
                             <FaShieldAlt style={{ marginRight: "6px" }} />
                             Security
@@ -1050,23 +778,21 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
 
                     <StyledTabsContent value="wallet">{renderWalletInfo()}</StyledTabsContent>
 
-                    <StyledTabsContent value="transactions">{renderTransactionsSection()}</StyledTabsContent>
-
                     <StyledTabsContent value="network">{renderNetworkSettings()}</StyledTabsContent>
 
                     <StyledTabsContent value="security">{renderSecuritySettings()}</StyledTabsContent>
                 </StyledTabs>
 
                 {/* App Version */}
-                <div style={{ textAlign: "center", color: "var(--colors-textSecondary)", fontSize: "12px", marginTop: "24px" }}>
+                <div style={{ textAlign: "center", color: "#999999", fontSize: "12px", marginTop: "24px" }}>
                     Ethereum Wallet v1.0.0
                 </div>
             </StyledContent>
 
             {/* Toast Notification */}
             <Toast.Provider swipeDirection="right">
-                <Toast.Root open={isToastOpen} onOpenChange={setIsToastOpen} duration={3000}>
-                    <Toast.Title style={{ fontWeight: 500, display: "flex", alignItems: "center" }}>
+                <Toast.Root className="ToastRoot" open={isToastOpen} onOpenChange={setIsToastOpen} duration={3000}>
+                    <Toast.Title style={{ fontWeight: 500, display: "flex", alignItems: "center", color: "#FFFFFF", padding: "8px 12px" }}>
                         <FaCheck style={{ color: "#52c41a", marginRight: "8px" }} />
                         {toastMessage}
                     </Toast.Title>
@@ -1091,8 +817,18 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 }
                 
                 body {
-                    background-color: var(--colors-background);
-                    color: var(--colors-text);
+                    background-color: #000000;
+                    color: #FFFFFF;
+                }
+                
+                .ToastRoot {
+                    background-color: #1A1A1A;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                    padding: 8px;
+                    display: flex;
+                    align-items: center;
+                    border: 1px solid rgba(255, 128, 0, 0.2);
                 }
             `}</style>
         </StyledContainer>

@@ -91,24 +91,31 @@ const StyledSeedPhraseGrid = styled('div', {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '8px',
-    margin: '16px',
+    marginTop: '12px',
+    marginBottom: '16px',
 });
 
 const StyledSeedWord = styled('div', {
     display: 'flex',
     alignItems: 'center',
-    padding: '8px',
+    padding: '6px',
     backgroundColor: '#1a1a1a',
     borderRadius: '6px',
     fontFamily: 'monospace',
-    fontSize: '0.875rem',
+    fontSize: '0.7rem',
     border: '1px solid #333333',
     color: '#ffffff',
+    minHeight: '30px',
+    wordBreak: 'break-word',
+    overflow: 'hidden'
 });
 
 const StyledSeedWordNumber = styled('span', {
-    marginRight: '8px',
+    marginRight: '4px',
     color: '#FF8C00',
+    fontSize: '0.65rem',
+    fontWeight: 'bold',
+    minWidth: '16px'
 });
 
 const StyledCardFooter = styled('div', {
@@ -200,6 +207,29 @@ const StyledButton = styled('button', {
     },
 });
 
+// Add a clipboard copy notification style
+const CopyNotification = styled('div', {
+    position: 'fixed',
+    bottom: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    color: '#fff',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+    zIndex: 999,
+    animation: 'fadeIn 0.3s ease-out',
+    opacity: 0,
+    transition: 'opacity 0.3s ease',
+    '&.visible': {
+        opacity: 1
+    }
+});
+
 function SeedPhrase({ mnemonic, onConfirmed }) {
     const [confirmSeed, setConfirmSeed] = useState(false);
     const [userInput, setUserInput] = useState('');
@@ -221,6 +251,52 @@ function SeedPhrase({ mnemonic, onConfirmed }) {
     const handleCopy = () => {
         navigator.clipboard.writeText(mnemonic);
         setCopied(true);
+        
+        // Create a temporary element to show the notification
+        const notification = document.createElement('div');
+        notification.className = 'copy-notification';
+        notification.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M5.8 10.6L3.4 8.2L2 9.6L5.8 13.4L14 5.2L12.6 3.8L5.8 10.6Z" fill="#4CAF50"/>
+            </svg>
+            <span>Seed phrase copied!</span>
+        `;
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: fadeInOut 3s forwards;
+        `;
+        
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInOut {
+                0% { opacity: 0; transform: translate(-50%, 20px); }
+                10% { opacity: 1; transform: translate(-50%, 0); }
+                80% { opacity: 1; transform: translate(-50%, 0); }
+                100% { opacity: 0; transform: translate(-50%, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+        document.body.appendChild(notification);
+        
+        // Remove the notification after animation completes
+        setTimeout(() => {
+            document.body.removeChild(notification);
+            document.head.removeChild(style);
+        }, 3000);
+        
         setTimeout(() => setCopied(false), 3000);
     };
 

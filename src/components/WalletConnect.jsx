@@ -31,6 +31,8 @@ const StyledCard = styled('div', {
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
     color: '#fff',
     overflow: 'hidden',
+    width: '100%',
+    maxWidth: '400px',
 });
 
 const CardHeader = styled('div', {
@@ -48,6 +50,8 @@ const CardTitle = styled('h2', {
 
 const CardContent = styled('div', {
     padding: '20px',
+    width: '100%',
+    maxWidth: '400px',
 });
 
 const Button = styled('button', {
@@ -479,11 +483,27 @@ function WalletConnect({ onWalletReady }) {
                                     autoComplete="new-password"
                                 />
                                 {isNewUser && password && (
-                                    <StrengthText strength={getPasswordStrengthVariant()}>
+                                    <StrengthText strength={getPasswordStrengthVariant()} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
                                         {getPasswordStrengthLabel()}
                                     </StrengthText>
                                 )}
                             </InputWrapper>
+                            {isNewUser && (
+                                <div>
+                                    <HelperText>
+                                        <Info size={12} />
+                                        This password will encrypt and protect your wallet data
+                                    </HelperText>
+                                    {password && (
+                                        <StrengthBar value={passwordStrength * 20}>
+                                            <StrengthIndicator
+                                                style={{ transform: `translateX(-${100 - passwordStrength * 20}%)` }}
+                                                strength={getPasswordStrengthVariant()}
+                                            />
+                                        </StrengthBar>
+                                    )}
+                                </div>
+                            )}
                         </FormGroup>
 
                         {isNewUser && (

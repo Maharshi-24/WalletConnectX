@@ -32,7 +32,7 @@ const AppContainer = styled('div', {
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Inter, system-ui, sans-serif',
-    width: '680px',
+    width: '400px',
     position: 'relative', // Add position relative
     overflow: 'auto', // Ensure overflow is handled properly
 });
@@ -47,7 +47,7 @@ const AppHeader = styled('header', {
 const AppContent = styled('main', {
     flex: 1,
     padding: '24px 20px',
-    maxWidth: '680px',
+    maxWidth: '400px',
     margin: '0 auto',
     width: '100%',
     backgroundColor: '#121212', // Ensure content has background

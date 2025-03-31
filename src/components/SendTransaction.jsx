@@ -36,26 +36,26 @@ const StyledOverlay = styled("div", {
 
 const StyledContent = styled("div", {
     backgroundColor: "#0D0D0D",
-    borderRadius: "24px",
+    borderRadius: "20px",
     boxShadow: "0 25px 50px -12px rgba(255, 90, 0, 0.1)",
-    width: "90%",
-    maxWidth: "480px",
+    width: "360px",
+    maxWidth: "360px",
     padding: 0,
     border: "1px solid rgba(255, 90, 0, 0.2)",
     overflow: "hidden",
     animation: "contentShow 150ms ease-out",
-    maxHeight: "100%",
+    maxHeight: "95vh",
     display: "flex",
-    flexDirection: "column", // Ensure proper content flow
+    flexDirection: "column",
     "@media (max-width: 640px)": {
         width: "95%",
-        maxWidth: "none",
-        maxHeight: "95vh", // Adjust for mobile
+        maxWidth: "360px",
+        maxHeight: "95vh",
     },
 })
 
 const StyledHeader = styled("div", {
-    padding: "20px 24px",
+    padding: "16px 20px",
     borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
     display: "flex",
     alignItems: "center",
@@ -65,43 +65,42 @@ const StyledHeader = styled("div", {
 
 const StyledTitle = styled("h2", {
     margin: 0,
-    fontSize: "1.2rem",
+    fontSize: "1.1rem",
     fontWeight: 600,
     color: "#FFFFFF",
 })
 
 const StyledBody = styled("div", {
-    padding: "16px",
-    overflowY: "hidden", // Change from "auto" to "hidden"
+    padding: "12px",
+    overflowY: "auto",
     flexGrow: 1,
-    maxHeight: "none", // Remove the maxHeight constraint
-});
+    maxHeight: "calc(95vh - 56px)",
+})
 
 const StyledWalletCard = styled("div", {
     background: "linear-gradient(135deg, rgba(255, 90, 0, 0.1) 0%, rgba(13, 13, 13, 0.8) 100%)",
-    borderRadius: "16px", // Smaller radius
-    padding: "12px", // Reduced padding
-    marginBottom: "16px", // Reduced margin
+    borderRadius: "12px",
+    padding: "10px",
+    marginBottom: "12px",
     border: "1px solid rgba(255, 90, 0, 0.2)",
     transition: "all 0.3s ease",
     "&:hover": {
-        transform: "translateY(-3px)",
-        boxShadow: "0 10px 25px -5px rgba(255, 90, 0, 0.3)",
+        transform: "translateY(-2px)",
+        boxShadow: "0 8px 20px -5px rgba(255, 90, 0, 0.3)",
     },
 })
 
-
 const NetworkBadge = styled("div", {
-    padding: "6px 12px",
+    padding: "4px 10px",
     borderRadius: "999px",
-    fontSize: "0.75rem",
+    fontSize: "0.7rem",
     fontWeight: 600,
     background: "rgba(255, 90, 0, 0.15)",
     color: "#FF5A00",
     border: "1px solid rgba(255, 90, 0, 0.3)",
     display: "flex",
     alignItems: "center",
-    gap: "6px",
+    gap: "4px",
 
     variants: {
         status: {
@@ -125,37 +124,36 @@ const NetworkBadge = styled("div", {
 })
 
 const WalletBalance = styled("div", {
-    fontSize: "1.75rem", // Slightly smaller font
+    fontSize: "1.5rem",
     fontWeight: 700,
     color: "#FFFFFF",
-    marginTop: "4px", // Reduced margin
+    marginTop: "4px",
     display: "flex",
     alignItems: "center",
-    gap: "8px",
+    gap: "6px",
 })
 
 const FormGroup = styled("div", {
-    marginBottom: "12px", // Reduced margin
+    marginBottom: "10px",
 })
-
 
 const FormLabel = styled("label", {
     display: "flex",
     alignItems: "center",
-    marginBottom: "8px",
+    marginBottom: "6px",
     color: "rgba(255, 255, 255, 0.7)",
-    fontSize: "0.9rem",
+    fontSize: "0.85rem",
     fontWeight: 600,
 })
 
 const Input = styled("input", {
     width: "100%",
-    padding: "12px", // Reduced padding
+    padding: "10px",
     background: "rgba(255, 255, 255, 0.05)",
     border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: "14px", // Smaller radius
+    borderRadius: "12px",
     color: "#FFFFFF",
-    fontSize: "1rem",
+    fontSize: "0.95rem",
     transition: "all 0.2s ease",
     "&:focus": {
         outline: "none",
@@ -177,10 +175,10 @@ const SelectTrigger = styled("button", {
     alignItems: "center",
     justifyContent: "space-between",
     width: "95%",
-    padding: "12px", // Reduced padding
+    padding: "12px",
     background: "rgba(255, 255, 255, 0.05)",
     border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: "14px", // Smaller radius
+    borderRadius: "14px",
     color: "#FFFFFF",
     fontSize: "1rem",
     transition: "all 0.2s ease",
@@ -202,14 +200,14 @@ const SelectContent = styled(Select.Content, {
     boxShadow: "0px 10px 38px -10px rgba(22, 23, 24, 0.35), 0px 10px 20px -15px rgba(22, 23, 24, 0.2)",
     border: "1px solid rgba(255, 255, 255, 0.1)",
     zIndex: 1001,
-    position: "relative", // Added to ensure proper positioning
-    width: "var(--radix-select-trigger-width)", // Match trigger width
-    maxHeight: "var(--radix-select-content-available-height)", // Use available height
+    position: "relative",
+    width: "var(--radix-select-trigger-width)",
+    maxHeight: "var(--radix-select-content-available-height)",
 })
 
 const SelectViewport = styled(Select.Viewport, {
     padding: "5px",
-    maxHeight: "300px", // Limited max height
+    maxHeight: "300px",
 })
 
 const SelectScrollUpButton = styled(Select.ScrollUpButton, {
@@ -273,15 +271,14 @@ const Button = styled("button", {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "12px 20px", // Reduced padding
-    borderRadius: "14px", // Smaller radius
+    padding: "12px 20px",
+    borderRadius: "14px",
     border: "none",
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.2s ease",
     gap: "8px",
 
-    // Keep variant definitions as is
     variants: {
         variant: {
             primary: {
@@ -311,8 +308,8 @@ const Button = styled("button", {
             },
             icon: {
                 background: "transparent",
-                padding: "8px", // Reduced padding
-                borderRadius: "10px", // Smaller radius
+                padding: "8px",
+                borderRadius: "10px",
                 "&:hover": {
                     background: "rgba(255, 255, 255, 0.1)",
                 },
@@ -320,8 +317,8 @@ const Button = styled("button", {
             percentButton: {
                 background: "rgba(255, 255, 255, 0.05)",
                 color: "#FFFFFF",
-                padding: "6px 10px", // Reduced padding
-                borderRadius: "10px", // Smaller radius
+                padding: "6px 10px",
+                borderRadius: "10px",
                 "&:hover": {
                     background: "rgba(255, 90, 0, 0.15)",
                     color: "#FF5A00",
@@ -337,14 +334,13 @@ const Button = styled("button", {
 })
 
 const Alert = styled("div", {
-    borderRadius: "14px", // Smaller radius
-    padding: "12px", // Reduced padding
-    marginBottom: "16px", // Reduced margin
+    borderRadius: "14px",
+    padding: "12px",
+    marginBottom: "16px",
     display: "flex",
     alignItems: "flex-start",
     gap: "12px",
 
-    // Keep variant definitions as is
     variants: {
         variant: {
             error: {
@@ -362,7 +358,6 @@ const Alert = styled("div", {
         },
     },
 })
-
 
 const FormHelper = styled("div", {
     fontSize: "0.8rem",
@@ -424,7 +419,6 @@ const QuickAmounts = styled("div", {
     gap: "8px",
 })
 
-// Custom Network Status Indicator
 const StatusIndicator = styled("div", {
     width: "8px",
     height: "8px",
@@ -445,7 +439,6 @@ const StatusIndicator = styled("div", {
     },
 })
 
-// Token Icon component
 const TokenIcon = styled("div", {
     width: "24px",
     height: "24px",
@@ -459,7 +452,6 @@ const TokenIcon = styled("div", {
     fontWeight: "bold",
 })
 
-// Chain data display component
 const ChainData = styled("div", {
     display: "flex",
     alignItems: "center",
@@ -480,19 +472,15 @@ function SendTransaction({ wallet, onBack, initialChain }) {
     const [networkStatus, setNetworkStatus] = useState("connected")
     const [copySuccess, setCopySuccess] = useState("")
 
-    // Load available chains and user balance on component mount
     useEffect(() => {
-        // Load available chains from config - include ALL chains without filtering
         const chains = Object.values(CHAINS_CONFIG)
         setAvailableChains(chains)
 
-        // Fetch balance for the initial selected chain
         if (wallet && wallet.address) {
             fetchBalance(selectedChain)
         }
     }, [wallet])
 
-    // Update balance when chain selection changes
     useEffect(() => {
         if (wallet && wallet.address) {
             fetchBalance(selectedChain)
@@ -500,7 +488,6 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         }
     }, [selectedChain])
 
-    // Fetch balance for the selected chain with error handling
     const fetchBalance = async (chain) => {
         try {
             if (wallet && wallet.address) {
@@ -525,7 +512,6 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         }
     }
 
-    // Update gas estimate when chain changes
     const updateGasEstimate = async (chain) => {
         try {
             const estimate = await estimateGasFee(chain)
@@ -536,7 +522,6 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         }
     }
 
-    // Handle chain selection change
     const handleChainChange = (chainId) => {
         const chain = CHAINS_CONFIG[chainId]
         if (chain) {
@@ -546,20 +531,17 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         }
     }
 
-    // Retry balance fetch
     const retryFetchBalance = () => {
         setError("")
         setNetworkStatus("connecting")
         fetchBalance(selectedChain)
     }
 
-    // Format address for display (truncate)
     const formatAddress = (address) => {
         if (!address) return ""
         return `${address.substring(0, 8)}...${address.substring(address.length - 6)}`
     }
 
-    // Copy to clipboard
     const copyToClipboard = (text, message = "Copied!") => {
         navigator.clipboard.writeText(text).then(() => {
             setCopySuccess(message)
@@ -567,17 +549,14 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         })
     }
 
-    // Validate transaction inputs
     const validateInputs = () => {
         setError("")
 
-        // Check if amount is provided and valid
         if (!amount || isNaN(Number.parseFloat(amount)) || Number.parseFloat(amount) <= 0) {
             setError("Please enter a valid amount")
             return false
         }
 
-        // Check if recipient address is provided and valid
         if (!recipient) {
             setError("Please enter a recipient address")
             return false
@@ -588,7 +567,6 @@ function SendTransaction({ wallet, onBack, initialChain }) {
             return false
         }
 
-        // Check if amount is less than or equal to balance
         if (Number.parseFloat(amount) > Number.parseFloat(balance)) {
             setError(`Insufficient balance. You have ${balance} ${selectedChain.currencySymbol}`)
             return false
@@ -597,21 +575,17 @@ function SendTransaction({ wallet, onBack, initialChain }) {
         return true
     }
 
-    // Handle transaction submission
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // Clear previous states
         setError("")
         setSuccess("")
         setTransactionHash("")
 
-        // Validate inputs
         if (!validateInputs()) {
             return
         }
 
-        // Start transaction
         setIsLoading(true)
 
         try {
@@ -620,10 +594,8 @@ function SendTransaction({ wallet, onBack, initialChain }) {
             setTransactionHash(result.hash)
             setSuccess(`Transaction successful! ${amount} ${selectedChain.currencySymbol} sent.`)
 
-            // Refresh balance after successful transaction
             setTimeout(() => fetchBalance(selectedChain), 2000)
 
-            // Clear form
             setAmount("")
             setRecipient("")
         } catch (error) {

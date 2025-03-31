@@ -16,7 +16,8 @@ let state = {
     selectedChainId: null,
     pendingRequests: {},
     connectedSites: {}, // {origin: {origin, accounts, chainId, connected, permissions}}
-    walletConnectSessions: [] // Store active WalletConnect sessions
+    walletConnectSessions: [], // Store active WalletConnect sessions
+    trustedSites: ['app.1inch.io'] // List of trusted sites that auto-connect
 };
 
 // Extension branding and metadata
@@ -24,18 +25,24 @@ const EXTENSION_NAME = "WalletX";
 const EXTENSION_VERSION = "1.0.0";
 
 // Initialize state from storage
-chrome.storage.local.get(['state', 'connectedSites', 'walletConnectSessions'], (result) => {
+chrome.storage.local.get(['state', 'connectedSites', 'walletConnectSessions', 'accounts'], (result) => {
     if (result.state) {
         state = { ...state, ...result.state };
-    } else {
-        // Set initial accounts - generate a random test account if none exists
-        if (!state.accounts || state.accounts.length === 0) {
-            // This is just a placeholder account
-            const testAccount = '0x' + Math.random().toString(16).substring(2, 42).padStart(40, '0');
-            state.accounts = [testAccount];
-        }
-        state.selectedChainId = '0x1'; // Default to ETH mainnet
-        state.isUnlocked = false;
+    }
+    
+    // Use proper accounts from storage instead of generating random ones
+    if (result.accounts && result.accounts.length > 0) {
+        state.accounts = result.accounts;
+        console.log(`${EXTENSION_NAME}: Loaded real accounts from storage:`, state.accounts);
+    } else if (!state.accounts || state.accounts.length === 0) {
+        // ONLY generate a placeholder if nothing in storage and no accounts set
+        // In a real wallet, this would be replaced with accounts imported or created by the user
+        const testAccount = '0x' + Math.random().toString(16).substring(2, 42).padStart(40, '0');
+        state.accounts = [testAccount];
+        console.log(`${EXTENSION_NAME}: No accounts found, generated placeholder:`, state.accounts);
+        
+        // Save the generated account to storage
+        chrome.storage.local.set({ accounts: state.accounts });
     }
 
     if (result.connectedSites) {
@@ -46,6 +53,8 @@ chrome.storage.local.get(['state', 'connectedSites', 'walletConnectSessions'], (
         state.walletConnectSessions = result.walletConnectSessions;
     }
 
+    state.selectedChainId = state.selectedChainId || '0x1'; // Default to ETH mainnet
+    
     console.log(`${EXTENSION_NAME} state initialized:`, state);
 
     // Save the initial state to ensure it's properly preserved
@@ -100,6 +109,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
             return false;
 
+        case 'WALLETX_GET_CONNECTED_WALLET':
+            // Return the wallet address for a specific website
+            const siteOrigin = message.origin || (sender.origin || (sender.url ? new URL(sender.url).origin : null));
+            handleGetConnectedWallet(siteOrigin, sendResponse);
+            return false;
+
         case 'WALLETX_GET_STATE':
         case 'CROSS_NET_WALLET_GET_STATE':
             sendResponse({
@@ -130,17 +145,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'WALLETX_APPROVE_CONNECTION':
         case 'CROSS_NET_WALLET_APPROVE_CONNECTION':
-            handleConnectionApproval(message, sender, sendResponse);
+            handleConnectionApproval(true, message.origin, message.requestId, message.rememberSite);
             return false;
 
         case 'WALLETX_REJECT_CONNECTION':
         case 'CROSS_NET_WALLET_REJECT_CONNECTION':
-            handleConnectionRejection(message, sender, sendResponse);
+            handleConnectionApproval(false, message.origin, message.requestId, message.rememberSite);
             return false;
 
         case 'WALLETX_DISCONNECT_SITE':
         case 'CROSS_NET_WALLET_DISCONNECT_SITE':
             handleDisconnectSite(message, sender, sendResponse);
+            return false;
+
+        case 'WALLETX_ADD_TRUSTED_SITE':
+        case 'CROSS_NET_WALLET_ADD_TRUSTED_SITE':
+            const addResult = addTrustedSite(message.domain);
+            sendResponse({ success: addResult });
+            return false;
+        
+        case 'WALLETX_REMOVE_TRUSTED_SITE':
+        case 'CROSS_NET_WALLET_REMOVE_TRUSTED_SITE':
+            const removeResult = removeTrustedSite(message.domain);
+            sendResponse({ success: removeResult });
+            return false;
+        
+        case 'WALLETX_GET_TRUSTED_SITES':
+        case 'CROSS_NET_WALLET_GET_TRUSTED_SITES':
+            sendResponse({ success: true, trustedSites: state.trustedSites });
             return false;
 
         default:
@@ -164,119 +196,221 @@ function handleConnectRequest(message, sender, sendResponse) {
         return;
     }
 
-    // Check if already connected - return accounts immediately in this case
-    if (state.connectedSites[origin]) {
-        console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts`);
-        sendResponse({
-            success: true,
-            method: 'eth_requestAccounts',
-            result: state.accounts
-        });
-        return;
-    }
-
-    // For sites that need an immediate response, send a "pending" response
-    const needsImmediateResponse = message.method === 'eth_requestAccounts';
-    if (needsImmediateResponse) {
-        // Don't send response yet, we'll send it after user interaction
-        console.log(`${EXTENSION_NAME}: Deferring response until user approves/rejects`);
-    }
-
-    // Create a connection request
-    const request = {
-        id: message.id || `conn_${Date.now()}`,
-        type: 'connect',
-        origin: origin,
-        favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
-        title: message.title || (sender.tab ? sender.tab.title : origin),
-        timestamp: Date.now()
-    };
-
-    // Store the request
-    state.pendingRequests[request.id] = request;
-    saveState();
-
-    // Open extension popup for user to approve/reject
-    openExtensionPopup(request);
-
-    // Store the response callback to be called when user responds
-    const responseTimeout = setTimeout(() => {
-        // If no response after 5 minutes, send timeout error
-        console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
-
-        if (pendingCallbacks[request.id]) {
-            pendingCallbacks[request.id].sendResponse({
-                success: false,
-                error: { code: -32603, message: 'Request timed out. Please try again.' }
-            });
-            delete pendingCallbacks[request.id];
-        }
-
-        // Remove the request
-        delete state.pendingRequests[request.id];
-        saveState();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    // Store the response callback and timeout in global object to be called when user responds
-    pendingCallbacks[request.id] = {
-        sendResponse,
-        timeout: responseTimeout,
-        origin
-    };
-}
-
-// Handle connection approval from popup
-function handleConnectionApproval(message, sender, sendResponse) {
-    const requestId = message.requestId;
-    console.log(`${EXTENSION_NAME}: Handling connection approval for request ${requestId}`);
-
-    if (!requestId || !state.pendingRequests[requestId]) {
-        console.error(`${EXTENSION_NAME}: No pending request found with ID ${requestId}`);
-        sendResponse({ success: false, error: 'No pending request found' });
-        return;
-    }
-
-    const request = state.pendingRequests[requestId];
-    const origin = request.origin;
-
-    // Mark site as connected
-    state.connectedSites[origin] = {
-        active: true,
-        connectedAt: Date.now(),
-        permissions: message.permissions || ['eth_accounts', 'eth_requestAccounts']
-    };
-
-    // Remove from pending requests
-    delete state.pendingRequests[requestId];
-    saveState();
-
-    // Send response to the original requester if callback exists
-    if (pendingCallbacks[requestId]) {
-        clearTimeout(pendingCallbacks[requestId].timeout);
-
-        try {
-            pendingCallbacks[requestId].sendResponse({
+    // Get the real accounts from storage
+    chrome.storage.local.get(['accounts', 'state'], (result) => {
+        const storedAccounts = result.accounts || [];
+        const state = result.state || {};
+        
+        // Always prefer directly stored accounts over state accounts
+        const accountsToUse = storedAccounts.length > 0 ? storedAccounts : (state.accounts || []);
+        
+        console.log(`${EXTENSION_NAME}: Using real accounts for connection:`, accountsToUse);
+        
+        // Check if already connected - return accounts immediately in this case
+        if (state.connectedSites && state.connectedSites[origin]) {
+            console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts`);
+            sendResponse({
                 success: true,
                 method: 'eth_requestAccounts',
-                result: state.accounts
+                result: accountsToUse
             });
-            console.log(`${EXTENSION_NAME}: Connection approval response sent to origin ${origin}`);
-        } catch (error) {
-            console.error(`${EXTENSION_NAME}: Error sending approval response:`, error);
+            return;
         }
 
-        delete pendingCallbacks[requestId];
-    }
+        // Extract domain from origin to check against trusted sites
+        const domain = getDomainFromOrigin(origin);
+        
+        // Auto-approve for trusted sites
+        if (state.trustedSites && state.trustedSites.includes(domain)) {
+            console.log(`${EXTENSION_NAME}: Auto-approving connection for trusted site ${domain}`);
+            
+            // Mark site as connected
+            const connectedSites = state.connectedSites || {};
+            connectedSites[origin] = {
+                active: true,
+                connected: true,
+                connectedAt: Date.now(),
+                permissions: ['eth_accounts', 'eth_requestAccounts'],
+                autoApproved: true
+            };
+            
+            // Update state
+            chrome.storage.local.set({ 
+                state: { ...state, connectedSites }
+            }, () => {
+                console.log(`${EXTENSION_NAME}: Updated state for trusted site ${domain}`);
+            });
+            
+            // Return accounts immediately
+            sendResponse({
+                success: true,
+                method: 'eth_requestAccounts',
+                result: accountsToUse
+            });
+            
+            // Notify all content scripts that a site has been connected
+            broadcastToContentScripts({
+                type: 'WALLETX_CONNECTION_APPROVED',
+                origin: origin,
+                accounts: accountsToUse
+            });
 
-    // Notify all content scripts that a site has been connected
-    broadcastToContentScripts({
-        type: 'WALLETX_CONNECTION_APPROVED',
-        origin: origin,
-        accounts: state.accounts
+            return;
+        }
+
+        // For normal sites (not trusted), create a connection request
+        
+        // For sites that need an immediate response, send a "pending" response
+        const needsImmediateResponse = message.method === 'eth_requestAccounts';
+        if (needsImmediateResponse) {
+            // Don't send response yet, we'll send it after user interaction
+            console.log(`${EXTENSION_NAME}: Deferring response until user approves/rejects`);
+        }
+
+        // Create a connection request
+        const request = {
+            id: message.id || `conn_${Date.now()}`,
+            type: 'connect',
+            origin: origin,
+            tabId: sender.tab ? sender.tab.id : null,
+            favicon: message.favicon || (sender.tab ? sender.tab.favIconUrl : null),
+            title: message.title || (sender.tab ? sender.tab.title : origin),
+            timestamp: Date.now()
+        };
+
+        // Get current pending requests
+        chrome.storage.local.get(['pendingRequests'], (data) => {
+            const pendingRequests = data.pendingRequests || [];
+            pendingRequests.push(request);
+            
+            // Store the request
+            chrome.storage.local.set({ pendingRequests }, () => {
+                console.log(`${EXTENSION_NAME}: Stored connection request for ${origin}`);
+                
+                // Open extension popup for user to approve/reject
+                openExtensionPopup(request);
+            });
+        });
+
+        // Store the response callback to be called when user responds
+        const responseTimeout = setTimeout(() => {
+            // If no response after 5 minutes, send timeout error
+            console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
+
+            if (pendingCallbacks[request.id]) {
+                pendingCallbacks[request.id].sendResponse({
+                    success: false,
+                    error: { code: -32603, message: 'Request timed out. Please try again.' }
+                });
+                delete pendingCallbacks[request.id];
+            }
+
+            // Remove the request from storage
+            chrome.storage.local.get(['pendingRequests'], (data) => {
+                const pendingRequests = data.pendingRequests || [];
+                const updatedRequests = pendingRequests.filter(req => req.id !== request.id);
+                chrome.storage.local.set({ pendingRequests: updatedRequests });
+            });
+        }, 5 * 60 * 1000); // 5 minutes
+
+        // Store the response callback and timeout in global object to be called when user responds
+        pendingCallbacks[request.id] = {
+            sendResponse,
+            timeout: responseTimeout,
+            origin
+        };
     });
+}
 
-    // Send response to popup
-    sendResponse({ success: true });
+// Helper function to extract domain from origin
+function getDomainFromOrigin(origin) {
+    try {
+        const url = new URL(origin);
+        return url.hostname;
+    } catch (e) {
+        console.error(`${EXTENSION_NAME}: Error extracting domain from origin:`, e);
+        return origin;
+    }
+}
+
+// Handle approval of connection request
+function handleConnectionApproval(approved, origin, requestId, rememberSite = false) {
+    console.log(`Connection ${approved ? 'approved' : 'rejected'} for ${origin}`);
+    
+    chrome.storage.local.get(['state', 'pendingRequests', 'accounts'], (result) => {
+        const state = result.state || initialState;
+        const pendingRequests = result.pendingRequests || [];
+        const storedAccounts = result.accounts || [];
+        
+        // Always use directly stored accounts for consistent behavior
+        const accountsToUse = storedAccounts.length > 0 ? storedAccounts : state.accounts;
+        
+        console.log('Using accounts for connection:', accountsToUse);
+        
+        // Find and remove the request
+        const requestIndex = pendingRequests.findIndex(req => 
+            req.id === requestId && req.type === 'connect');
+        
+        if (requestIndex === -1) {
+            console.log('Request not found:', requestId);
+            return;
+        }
+        
+        const request = pendingRequests[requestIndex];
+        pendingRequests.splice(requestIndex, 1);
+        
+        // Update connected sites in state if approved
+        if (approved) {
+            const connectedSites = state.connectedSites || {};
+            connectedSites[origin] = {
+                connectedAt: Date.now(),
+                connected: true,
+                trusted: rememberSite
+            };
+            
+            // Add to trusted sites if user chose to remember
+            let trustedSites = state.trustedSites || [];
+            if (rememberSite && !trustedSites.includes(origin)) {
+                trustedSites.push(origin);
+            }
+            
+            updateState({
+                connectedSites,
+                trustedSites
+            });
+        }
+        
+        // Update pending requests
+        chrome.storage.local.set({ pendingRequests }, () => {
+            // Respond to the content script that initiated the request
+            try {
+                chrome.tabs.sendMessage(request.tabId, {
+                    type: 'CONNECTION_RESPONSE',
+                    requestId: request.id,
+                    approved,
+                    accounts: approved ? accountsToUse : []
+                }).catch(err => console.error('Error sending response:', err));
+                
+                // Broadcast to all content scripts for the origin
+                chrome.tabs.query({}, (tabs) => {
+                    tabs.forEach((tab) => {
+                        if (tab.url && tab.url.includes(origin)) {
+                            chrome.tabs.sendMessage(tab.id, {
+                                type: 'WALLETX_CONNECTION_APPROVED',
+                                origin,
+                                accounts: approved ? accountsToUse : []
+                            }).catch(err => console.log(`Could not send to tab ${tab.id}:`, err));
+                        }
+                    });
+                });
+            } catch (e) {
+                console.error('Error sending connection response:', e);
+            }
+            
+            // Update popup if open
+            broadcastStateUpdate();
+        });
+    });
 }
 
 // Handle connection rejection from popup
@@ -324,7 +458,7 @@ function handleDisconnectSite(message, sender, sendResponse) {
     // Remove site from connected sites
     if (state.connectedSites[origin]) {
         delete state.connectedSites[origin];
-        saveState();
+    saveState();
 
         // Notify all content scripts that a site has been disconnected
         broadcastToContentScripts({
@@ -380,9 +514,9 @@ function handleWeb3Request(message, sender, sendResponse) {
                     success: true,
                     result: state.accounts,
                     method
-                });
-                return;
-            }
+        });
+        return;
+    }
 
             // Otherwise, create a connection request (follow similar pattern to handleConnectRequest)
             const request = {
@@ -444,8 +578,8 @@ function handleWeb3Request(message, sender, sendResponse) {
             result: accounts,
             method
         });
-        return;
-    }
+            return;
+        }
 
     // Handle chainId request
     if (method === 'eth_chainId') {
@@ -944,4 +1078,91 @@ function handleWalletConnectDisconnect(message, sendResponse) {
 // Save WalletConnect sessions to storage
 function saveWalletConnectSessions() {
     chrome.storage.local.set({ walletConnectSessions: state.walletConnectSessions });
+}
+
+// Add a new function to manage trusted sites
+function addTrustedSite(domain) {
+    if (!state.trustedSites.includes(domain)) {
+        state.trustedSites.push(domain);
+        saveState();
+        console.log(`${EXTENSION_NAME}: Added ${domain} to trusted sites`);
+        return true;
+    }
+    return false;
+}
+
+function removeTrustedSite(domain) {
+    const index = state.trustedSites.indexOf(domain);
+    if (index > -1) {
+        state.trustedSites.splice(index, 1);
+        saveState();
+        console.log(`${EXTENSION_NAME}: Removed ${domain} from trusted sites`);
+        return true;
+    }
+    return false;
+}
+
+// Function to handle getting the connected wallet address for a specific site
+function handleGetConnectedWallet(origin, sendResponse) {
+    console.log(`${EXTENSION_NAME}: Getting connected wallet for origin:`, origin);
+    
+    if (!origin) {
+        console.error(`${EXTENSION_NAME}: No origin provided for wallet lookup`);
+        sendResponse({
+            success: false,
+            error: { code: -32602, message: 'Missing origin' }
+        });
+        return;
+    }
+    
+    // Get both the accounts and state from storage
+    chrome.storage.local.get(['accounts', 'state'], (result) => {
+        const storedAccounts = result.accounts || [];
+        const state = result.state || {};
+        
+        // Use the directly stored accounts first, then fall back to state accounts
+        const accountsToUse = storedAccounts.length > 0 ? storedAccounts : (state.accounts || []);
+        
+        // Check if this site is connected
+        const isConnected = state.connectedSites && state.connectedSites[origin];
+        
+        if (isConnected && accountsToUse.length > 0) {
+            console.log(`${EXTENSION_NAME}: Site ${origin} is connected, returning wallet address:`, accountsToUse[0]);
+            sendResponse({
+                success: true,
+                address: accountsToUse[0],
+                chainId: state.selectedChainId || '0x1'
+            });
+        } else {
+            console.log(`${EXTENSION_NAME}: Site ${origin} not connected or no accounts available`);
+            sendResponse({
+                success: false,
+                error: { code: 4001, message: 'Site not connected or no wallet available' }
+            });
+        }
+    });
+}
+
+// Helper function to broadcast state updates to all tabs
+function broadcastStateUpdate() {
+    chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+            chrome.tabs.sendMessage(tab.id, { type: 'STATE_UPDATE' })
+                .catch(err => console.log(`Could not send to tab ${tab.id}:`, err));
+        });
+    });
+}
+
+// Helper function to update state
+function updateState(newState) {
+    chrome.storage.local.get(['state'], (result) => {
+        const currentState = result.state || initialState;
+        const updatedState = { ...currentState, ...newState };
+        
+        chrome.storage.local.set({ state: updatedState }, () => {
+            console.log('State updated:', updatedState);
+            // Broadcast to all content scripts
+            broadcastStateUpdate();
+        });
+    });
 } 

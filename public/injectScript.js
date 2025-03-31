@@ -84,8 +84,13 @@ const walletXProvider = {
     connected: false,
     accounts: [],
 
-    // UUID for unique identification
+    // UUID for unique identification - use a distinct ID for better detection
     uuid: '5099a4b6-4375-45dd-a505-1f8d095a1098',
+
+    // Add standard wallet provider detection properties
+    _isMetaMask: true, // Legacy compatibility
+    _isWalletX: true,  // Custom identifier
+    _isWallet: true,   // Standard web3 wallet identifier
 
     // Enhanced provider info for better dApp detection
     providerInfo: {
@@ -109,6 +114,14 @@ const walletXProvider = {
         try {
             // Handle eth_requestAccounts - connect to wallet
             if (method === 'eth_requestAccounts') {
+                // First check if we already have the accounts from state
+                if (this.accounts && this.accounts.length) {
+                    console.log('WalletX: Using existing accounts:', this.accounts);
+                    this.connected = true;
+                    this.selectedAddress = this.accounts[0] || null;
+                    return this.accounts;
+                }
+                
                 // Request connection if not already connected
                 if (!this.connected || !this.accounts.length) {
                     console.log('WalletX: Requesting account connection');
@@ -220,6 +233,53 @@ const walletXProvider = {
                 listener(...args);
             }
         }
+    },
+
+    // Add a method to get the connected wallet for this site
+    getConnectedWallet: async function() {
+        return new Promise((resolve, reject) => {
+            // Create a unique ID for this request
+            const requestId = Date.now().toString() + Math.floor(Math.random() * 1000000);
+            
+            // Create message handler for the response
+            const handleResponse = (event) => {
+                if (
+                    event.source !== window ||
+                    !event.data ||
+                    event.data.type !== 'WALLETX_CONNECTED_WALLET_RESPONSE' ||
+                    event.data.id !== requestId
+                ) {
+                    return;
+                }
+                
+                // Remove event listener
+                window.removeEventListener('message', handleResponse);
+                
+                if (event.data.success) {
+                    resolve({
+                        address: event.data.address,
+                        chainId: event.data.chainId
+                    });
+                } else {
+                    reject(new Error(event.data.error?.message || 'Failed to get connected wallet'));
+                }
+            };
+            
+            // Add listener for the response
+            window.addEventListener('message', handleResponse);
+            
+            // Send the request
+            window.postMessage({
+                type: 'WALLETX_GET_CONNECTED_WALLET',
+                id: requestId
+            }, '*');
+            
+            // Set timeout to reject if no response
+            setTimeout(() => {
+                window.removeEventListener('message', handleResponse);
+                reject(new Error('Request timed out'));
+            }, 10000); // 10 second timeout
+        });
     }
 };
 
@@ -268,36 +328,104 @@ window.addEventListener('message', function (event) {
     }
 });
 
-// Set up the window.ethereum object
-if (!window.ethereum) {
-    window.ethereum = walletXProvider;
-    console.log('WalletX: Provider injected into window.ethereum');
-} else {
-    console.log('WalletX: window.ethereum already exists, wrapping it');
-    // Save the original provider
-    window.originalEthereum = window.ethereum;
+// Add the getter to the window object so it's easily accessible
+window.walletx = {
+    ethereum: walletXProvider,
+    getConnectedWallet: () => walletXProvider.getConnectedWallet()
+};
 
-    // Wrap the existing provider with our provider
-    Object.keys(walletXProvider).forEach(key => {
-        if (typeof walletXProvider[key] === 'function') {
-            const originalFn = window.ethereum[key];
-            window.ethereum[key] = function (...args) {
-                return walletXProvider[key].apply(walletXProvider, args);
-            };
-        } else {
-            window.ethereum[key] = walletXProvider[key];
+// Make the provider available as window.ethereum (the standard way)
+// Save any existing provider
+const existingProvider = window.ethereum;
+
+// Set up our provider as the main ethereum provider
+window.ethereum = walletXProvider;
+
+// If there was an existing provider, maintain compatibility
+if (existingProvider) {
+    console.log('WalletX: Another provider was detected, maintaining compatibility');
+    // Copy any useful properties from the existing provider
+    Object.keys(existingProvider).forEach(key => {
+        if (!window.ethereum[key] && key !== 'request' && key !== 'send' && key !== 'sendAsync') {
+            window.ethereum[key] = existingProvider[key];
         }
     });
-
-    console.log('WalletX: Provider wrapped around existing window.ethereum');
+    
+    // Store the original provider
+    window.ethereum._originalProvider = existingProvider;
 }
 
-// Maintain older web3 compatibility
-if (!window.web3) {
-    window.web3 = {
-        currentProvider: window.ethereum
-    };
-    console.log('WalletX: Added window.web3 for legacy compatibility');
+// Dispatch EIP-1193 events for provider detected
+try {
+    window.dispatchEvent(new Event('ethereum#initialized'));
+    
+    // Also dispatch legacy MetaMask-style events for compatibility
+    setTimeout(() => {
+        window.dispatchEvent(new Event('WalletX#initialized'));
+        window.dispatchEvent(new Event('web3#initialized'));
+    }, 0);
+} catch (error) {
+    console.error('WalletX: Error dispatching provider initialization event:', error);
 }
 
-console.log('WalletX: Provider injection completed'); 
+console.log('WalletX: Provider injection completed');
+
+// Listen for state updates from content script
+window.addEventListener('message', (event) => {
+    // Only accept messages from our content script
+    if (event.source !== window || !event.data || event.data.type !== 'WALLETX_STATE_UPDATE') {
+        return;
+    }
+
+    const { payload } = event.data;
+    console.log('WalletX: Received state update from content script:', payload);
+
+    if (window.ethereum && window.ethereum.isWalletX) {
+        // Update ethereum provider state
+        window.ethereum.connected = payload.isConnected;
+        
+        if (payload.address) {
+            // Always use the real address from storage, not a random one
+            window.ethereum.accounts = [payload.address];
+            window.ethereum.selectedAddress = payload.address;
+            
+            // Always emit accountsChanged event to ensure site gets updated address
+            console.log('WalletX: Emitting accountsChanged with address:', payload.address);
+            window.ethereum._emit('accountsChanged', [payload.address]);
+            
+            // Store last emitted accounts
+            window.ethereum._lastEmittedAccounts = [payload.address];
+            
+            // Also update walletx.ethereum directly
+            if (window.walletx && window.walletx.ethereum) {
+                window.walletx.ethereum.accounts = [payload.address];
+                window.walletx.ethereum.selectedAddress = payload.address;
+                window.walletx.ethereum.connected = true;
+            }
+        } else if (window.ethereum.accounts.length > 0) {
+            // Only clear if we actually had accounts before
+            window.ethereum.accounts = [];
+            window.ethereum.selectedAddress = null;
+            window.ethereum._emit('accountsChanged', []);
+            window.ethereum._lastEmittedAccounts = [];
+            
+            if (window.walletx && window.walletx.ethereum) {
+                window.walletx.ethereum.accounts = [];
+                window.walletx.ethereum.selectedAddress = null;
+                window.walletx.ethereum.connected = false;
+            }
+        }
+        
+        // Update chain ID if changed
+        if (payload.chainId && window.ethereum.chainId !== payload.chainId) {
+            window.ethereum.chainId = payload.chainId;
+            window.ethereum.networkVersion = parseInt(payload.chainId, 16).toString();
+            window.ethereum._emit('chainChanged', payload.chainId);
+            
+            if (window.walletx && window.walletx.ethereum) {
+                window.walletx.ethereum.chainId = payload.chainId;
+                window.walletx.ethereum.networkVersion = parseInt(payload.chainId, 16).toString();
+            }
+        }
+    }
+}); 

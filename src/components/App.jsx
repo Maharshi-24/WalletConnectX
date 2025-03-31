@@ -3,6 +3,7 @@ import WalletConnect from './WalletConnect.jsx';
 import WalletCreate from './WalletCreate.jsx';
 import WalletVerification from './WalletVerification.jsx';
 import Dashboard from './Dashboard.jsx';
+import RequestApproval from './RequestApproval.jsx';
 import {
     walletExists,
     getWalletData,
@@ -170,6 +171,8 @@ function App() {
     const [tempWallet, setTempWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true); // Add loading state for session check
     const [pendingRequest, setPendingRequest] = useState(null);
+    const [activeRequest, setActiveRequest] = useState(null);
+    const [error, setError] = useState(null);
 
     // Check if we're in an extension context
     const isExtensionContext = typeof chrome !== 'undefined' && chrome.storage;
@@ -280,9 +283,31 @@ function App() {
 
     // Handle wallet connection success
     const handleWalletConnected = (walletData) => {
-        // Store the wallet data temporarily and show verification
-        setTempWallet(walletData);
-        setShowVerification(true);
+        console.log('Wallet connected:', walletData);
+        if (isExtensionContext && walletData && walletData.address) {
+            // Update state in chrome storage
+            chrome.storage.local.get(['state'], (result) => {
+                const currentState = result.state || {};
+                const newState = {
+                    ...currentState,
+                    accounts: [walletData.address],
+                    isUnlocked: true
+                };
+                
+                console.log('Updating state with wallet address:', walletData.address);
+                chrome.storage.local.set({ state: newState }, () => {
+                    // Broadcast state change
+                    if (chrome.runtime && chrome.runtime.sendMessage) {
+                        chrome.runtime.sendMessage({ type: 'WALLET_CONNECTED', address: walletData.address });
+                    }
+                });
+            });
+        }
+        setWallet(walletData);
+        setIsAuthenticated(true);
+        setShowVerification(false);
+        setTempWallet(null);
+        setError(null);
     };
 
     // Handle verification confirmation
@@ -316,6 +341,104 @@ function App() {
         // Also clear from storage
         if (isExtensionContext && chrome.storage) {
             chrome.storage.local.remove(['currentPendingRequest']);
+        }
+    };
+
+    // Handle approving a connection request
+    const handleApproveRequest = async (requestId, options = {}) => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            // Add to trusted sites if requested
+            if (options.addToTrusted && options.domain) {
+                await chrome.runtime.sendMessage({
+                    type: 'WALLETX_ADD_TRUSTED_SITE',
+                    domain: options.domain
+                });
+                console.log(`Added ${options.domain} to trusted sites`);
+            }
+
+            // Send approval message
+            const response = await chrome.runtime.sendMessage({
+                type: 'WALLETX_APPROVE_CONNECTION',
+                requestId
+            });
+
+            if (response && response.success) {
+                setActiveRequest(null);
+                
+                // If this was opened in a popup, close it after approval
+                if (window.opener) {
+                    window.close();
+                }
+            } else {
+                setError(response.error || 'Failed to approve request');
+            }
+        } catch (error) {
+            console.error('Error approving request:', error);
+            setError('Failed to approve request: ' + (error.message || 'Unknown error'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Check if we have a pending request in the URL
+    useEffect(() => {
+        if (isExtensionContext) {
+            const params = new URLSearchParams(window.location.search);
+            const requestType = params.get('requestType');
+            const requestId = params.get('requestId');
+            
+            if (requestId) {
+                getPendingRequest(requestId);
+            }
+        }
+    }, []);
+
+    // Fetch a pending request from background script
+    const getPendingRequest = async (requestId) => {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'WALLETX_GET_PENDING_REQUEST',
+                requestId
+            });
+            
+            if (response && response.success && response.request) {
+                setActiveRequest(response.request);
+            }
+        } catch (error) {
+            console.error('Error fetching pending request:', error);
+            setError('Failed to fetch request details');
+        }
+    };
+
+    // Handle rejecting a connection request
+    const handleRejectRequest = async (requestId) => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'WALLETX_REJECT_CONNECTION',
+                requestId
+            });
+            
+            if (response && response.success) {
+                setActiveRequest(null);
+                
+                // If this was opened in a popup, close it after rejection
+                if (window.opener) {
+                    window.close();
+                }
+            } else {
+                setError(response.error || 'Failed to reject request');
+            }
+        } catch (error) {
+            console.error('Error rejecting request:', error);
+            setError('Failed to reject request: ' + (error.message || 'Unknown error'));
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -360,6 +483,23 @@ function App() {
                     wallet={tempWallet}
                     onContinue={handleVerificationConfirmed}
                     onCancel={handleVerificationCancelled}
+                />
+            </AppContainer>
+        );
+    }
+
+    // If there's an active request, show the RequestApproval component
+    if (activeRequest) {
+        return (
+            <AppContainer>
+                <RequestApproval 
+                    request={activeRequest}
+                    wallet={wallet}
+                    onApprove={handleApproveRequest}
+                    onReject={handleRejectRequest}
+                    onClose={() => setActiveRequest(null)}
+                    loading={isLoading}
+                    error={error}
                 />
             </AppContainer>
         );

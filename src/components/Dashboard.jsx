@@ -16,7 +16,15 @@ import {
     Check,
     Settings as SettingsIcon,
     QrCode,
-    LogOut
+    LogOut,
+    Download,
+    Send,
+    MoreVertical,
+    ShieldAlert,
+    SendHorizonal,
+    User,
+    ExternalLink,
+    AlertCircle
 } from 'lucide-react';
 import {
     Dialog,
@@ -37,6 +45,7 @@ import { Separator } from '@radix-ui/react-separator';
 import { Theme } from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import { createStitches } from '@stitches/react';
+import { QRCodeSVG } from 'qrcode.react';
 
 // Create Stitches instance with theme configuration
 const { styled, css, globalCss, keyframes, getCssText, theme } = createStitches({
@@ -357,6 +366,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
     const [currentRequest, setCurrentRequest] = useState(null);
     const [requestActionLoading, setRequestActionLoading] = useState(false);
     const [requestActionError, setRequestActionError] = useState(null);
+    const [showReceiveDrawer, setShowReceiveDrawer] = useState(false);
 
     // Check if we're running in a browser extension context
     const isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
@@ -608,6 +618,19 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
         }
     };
 
+    // Function to download QR code
+    const downloadQrCode = () => {
+        const canvas = document.querySelector('.qr-code-container canvas');
+        if (!canvas) return;
+        
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `${wallet.address.substring(0, 8)}_qrcode.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // If settings page is shown
     if (showSettings) {
         return (
@@ -721,9 +744,9 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                 </Card>
 
                 {/* Action Buttons */}
-                <Flex gap="2" css={{ marginBottom: '$4' }}>
+                <Flex justify="between" gap="3" css={{ marginBottom: '$4' }}>
                     <Button
-                        variant="default"
+                        variant="primary"
                         onClick={() => setShowSendTransaction(true)}
                         css={{
                             flex: 1,
@@ -739,7 +762,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
 
                     <Button
                         variant="outline"
-                        onClick={() => setShowSettings(true)}
+                        onClick={() => setShowReceiveDrawer(true)}
                         css={{
                             flex: 1,
                             padding: '$3',
@@ -918,6 +941,133 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                 loading={requestActionLoading}
                                 error={requestActionError}
                             />
+                        </div>
+                    </div>
+                )}
+
+                {/* Receive Drawer */}
+                {showReceiveDrawer && (
+                    <div style={{
+                        position: 'fixed',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: 'var(--colors-secondary)',
+                        borderTopLeftRadius: '24px',
+                        borderTopRightRadius: '24px',
+                        padding: '24px',
+                        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.1)',
+                        zIndex: 1000,
+                        transform: 'translateY(0)',
+                        transition: 'transform 0.3s ease-out',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px'
+                    }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                        }}>
+                            <h2 style={{ 
+                                margin: 0, 
+                                fontSize: '1.2rem', 
+                                fontWeight: 600,
+                                color: 'var(--colors-primary)'
+                            }}>
+                                Receive {selectedChain.currencySymbol}
+                            </h2>
+                            <Button 
+                                variant="close" 
+                                onClick={() => setShowReceiveDrawer(false)}
+                                css={{ padding: '8px' }}
+                            >
+                                <X size={18} />
+                            </Button>
+                        </div>
+
+                        {/* QR Code */}
+                        <div className="qr-code-container" style={{ 
+                            textAlign: 'center', 
+                            marginBottom: '16px',
+                            padding: '16px',
+                            backgroundColor: 'white',
+                            borderRadius: '16px'
+                        }}>
+                            <QRCodeSVG
+                                value={`ethereum:${wallet.address}`}
+                                size={200}
+                                bgColor={'#ffffff'}
+                                fgColor={'#000000'}
+                                level={'H'}
+                                includeMargin={true}
+                            />
+                        </div>
+
+                        {/* Address */}
+                        <div style={{ 
+                            textAlign: 'center', 
+                            marginBottom: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                        }}>
+                            <div style={{ fontSize: '14px', color: 'var(--colors-muted)' }}>
+                                Your {selectedChain.chainName} Address
+                            </div>
+                            <div style={{ 
+                                padding: '12px 16px',
+                                backgroundColor: 'var(--colors-surface)',
+                                borderRadius: '12px',
+                                fontFamily: 'monospace',
+                                wordBreak: 'break-all',
+                                fontSize: '14px',
+                                position: 'relative',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ 
+                                    overflow: 'hidden', 
+                                    textOverflow: 'ellipsis',
+                                    color: 'var(--colors-text)'
+                                }}>
+                                    {wallet.address}
+                                </span>
+                                <Button
+                                    variant="icon"
+                                    onClick={() => copyToClipboard(wallet.address)}
+                                    css={{ flexShrink: 0, marginLeft: '8px' }}
+                                >
+                                    <Copy size={16} />
+                                </Button>
+                            </div>
+                            <div style={{ fontSize: '14px', color: 'var(--colors-muted)' }}>
+                                Scan this QR code or share your address to receive {selectedChain.currencySymbol}
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                            <Button
+                                variant="secondary"
+                                css={{ flex: 1 }}
+                                onClick={() => copyToClipboard(wallet.address)}
+                            >
+                                <Copy size={16} />
+                                Copy Address
+                            </Button>
+                            <Button
+                                variant="primary"
+                                css={{ flex: 1 }}
+                                onClick={downloadQrCode}
+                            >
+                                <Download size={16} />
+                                Download QR
+                            </Button>
                         </div>
                     </div>
                 )}

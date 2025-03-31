@@ -157,11 +157,14 @@ function handleConnectRequest(message, sender, sendResponse) {
 
     if (!origin) {
         console.error(`${EXTENSION_NAME}: No origin in connection request`);
-        sendResponse({ success: false, error: 'No origin in request' });
+        sendResponse({
+            success: false,
+            error: { code: -32602, message: 'Missing origin' }
+        });
         return;
     }
 
-    // Check if already connected
+    // Check if already connected - return accounts immediately in this case
     if (state.connectedSites[origin]) {
         console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts`);
         sendResponse({
@@ -170,6 +173,13 @@ function handleConnectRequest(message, sender, sendResponse) {
             result: state.accounts
         });
         return;
+    }
+
+    // For sites that need an immediate response, send a "pending" response
+    const needsImmediateResponse = message.method === 'eth_requestAccounts';
+    if (needsImmediateResponse) {
+        // Don't send response yet, we'll send it after user interaction
+        console.log(`${EXTENSION_NAME}: Deferring response until user approves/rejects`);
     }
 
     // Create a connection request
@@ -189,15 +199,18 @@ function handleConnectRequest(message, sender, sendResponse) {
     // Open extension popup for user to approve/reject
     openExtensionPopup(request);
 
-    // Response will be sent when user approves or rejects
-    // We set up a listener to wait for the response
+    // Store the response callback to be called when user responds
     const responseTimeout = setTimeout(() => {
         // If no response after 5 minutes, send timeout error
         console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
-        sendResponse({
-            success: false,
-            error: 'Request timed out. Please try again.'
-        });
+
+        if (pendingCallbacks[request.id]) {
+            pendingCallbacks[request.id].sendResponse({
+                success: false,
+                error: { code: -32603, message: 'Request timed out. Please try again.' }
+            });
+            delete pendingCallbacks[request.id];
+        }
 
         // Remove the request
         delete state.pendingRequests[request.id];
@@ -240,11 +253,18 @@ function handleConnectionApproval(message, sender, sendResponse) {
     // Send response to the original requester if callback exists
     if (pendingCallbacks[requestId]) {
         clearTimeout(pendingCallbacks[requestId].timeout);
-        pendingCallbacks[requestId].sendResponse({
-            success: true,
-            method: 'eth_requestAccounts',
-            result: state.accounts
-        });
+
+        try {
+            pendingCallbacks[requestId].sendResponse({
+                success: true,
+                method: 'eth_requestAccounts',
+                result: state.accounts
+            });
+            console.log(`${EXTENSION_NAME}: Connection approval response sent to origin ${origin}`);
+        } catch (error) {
+            console.error(`${EXTENSION_NAME}: Error sending approval response:`, error);
+        }
+
         delete pendingCallbacks[requestId];
     }
 
@@ -349,11 +369,11 @@ function handleWeb3Request(message, sender, sendResponse) {
         return;
     }
 
-    // Handle account-related methods
+    // Handle account-related methods according to web3 protocol
     if (method === 'eth_requestAccounts' || method === 'eth_accounts') {
         // For eth_requestAccounts, check if site is connected
         if (method === 'eth_requestAccounts') {
-            // If site is already connected, return accounts
+            // If site is already connected, return accounts immediately
             if (state.connectedSites[origin]) {
                 console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts for eth_requestAccounts`);
                 sendResponse({
@@ -364,7 +384,7 @@ function handleWeb3Request(message, sender, sendResponse) {
                 return;
             }
 
-            // Otherwise, create a connection request
+            // Otherwise, create a connection request (follow similar pattern to handleConnectRequest)
             const request = {
                 id: message.id || `conn_${Date.now()}`,
                 type: 'connect',
@@ -383,24 +403,35 @@ function handleWeb3Request(message, sender, sendResponse) {
             openExtensionPopup(request);
 
             // Store the response callback to be called when user responds
+            const timeoutId = setTimeout(() => {
+                // If no response after 5 minutes, send timeout error
+                console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
+
+                if (pendingCallbacks[request.id]) {
+                    try {
+                        pendingCallbacks[request.id].sendResponse({
+                            success: false,
+                            error: { code: -32603, message: 'Request timed out' }
+                        });
+                    } catch (error) {
+                        console.error(`${EXTENSION_NAME}: Error sending timeout response:`, error);
+                    }
+
+                    delete pendingCallbacks[request.id];
+                }
+
+                // Remove the request
+                delete state.pendingRequests[request.id];
+                saveState();
+            }, 5 * 60 * 1000); // 5 minutes
+
             pendingCallbacks[request.id] = {
                 sendResponse,
-                timeout: setTimeout(() => {
-                    // If no response after 5 minutes, send timeout error
-                    console.log(`${EXTENSION_NAME}: Connection request timed out for ${origin}`);
-                    sendResponse({
-                        success: false,
-                        error: { code: -32603, message: 'Request timed out' }
-                    });
-
-                    // Remove the request
-                    delete state.pendingRequests[request.id];
-                    delete pendingCallbacks[request.id];
-                    saveState();
-                }, 5 * 60 * 1000), // 5 minutes
+                timeout: timeoutId,
                 origin
             };
 
+            // Don't send an immediate response - the response will be sent after user interaction
             return;
         }
 

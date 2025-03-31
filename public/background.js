@@ -207,7 +207,7 @@ function handleConnectRequest(message, sender, sendResponse) {
         console.log(`${EXTENSION_NAME}: Using real accounts for connection:`, accountsToUse);
         
         // Check if already connected - return accounts immediately in this case
-        if (state.connectedSites && state.connectedSites[origin]) {
+        if (state.connectedSites && state.connectedSites[origin] && state.connectedSites[origin].connected === true) {
             console.log(`${EXTENSION_NAME}: Site ${origin} already connected, returning accounts`);
             sendResponse({
                 success: true,
@@ -217,54 +217,23 @@ function handleConnectRequest(message, sender, sendResponse) {
             return;
         }
 
-        // Extract domain from origin to check against trusted sites
+        // Extract domain from origin for trusted sites check
         const domain = getDomainFromOrigin(origin);
         
-        // Auto-approve for trusted sites
-        if (state.trustedSites && state.trustedSites.includes(domain)) {
-            console.log(`${EXTENSION_NAME}: Auto-approving connection for trusted site ${domain}`);
-            
-            // Mark site as connected
-            const connectedSites = state.connectedSites || {};
-            connectedSites[origin] = {
-                active: true,
-                connected: true,
-                connectedAt: Date.now(),
-                permissions: ['eth_accounts', 'eth_requestAccounts'],
-                autoApproved: true
-            };
-            
-            // Update state
-            chrome.storage.local.set({ 
-                state: { ...state, connectedSites }
-            }, () => {
-                console.log(`${EXTENSION_NAME}: Updated state for trusted site ${domain}`);
-            });
-            
-            // Return accounts immediately
-            sendResponse({
-                success: true,
-                method: 'eth_requestAccounts',
-                result: accountsToUse
-            });
-            
-            // Notify all content scripts that a site has been connected
-            broadcastToContentScripts({
-                type: 'WALLETX_CONNECTION_APPROVED',
-                origin: origin,
-                accounts: accountsToUse
-            });
-
-            return;
-        }
-
-        // For normal sites (not trusted), create a connection request
+        // Always require user approval, even for trusted sites (for security reasons)
+        console.log(`${EXTENSION_NAME}: Creating connection request for ${origin}`);
         
         // For sites that need an immediate response, send a "pending" response
         const needsImmediateResponse = message.method === 'eth_requestAccounts';
         if (needsImmediateResponse) {
-            // Don't send response yet, we'll send it after user interaction
-            console.log(`${EXTENSION_NAME}: Deferring response until user approves/rejects`);
+            // Send pending status back to dApp
+            sendResponse({
+                success: false,
+                error: { 
+                    code: 4001, 
+                    message: 'Connection approval pending. Please check the extension popup.'
+                }
+            });
         }
 
         // Create a connection request
@@ -281,6 +250,14 @@ function handleConnectRequest(message, sender, sendResponse) {
         // Get current pending requests
         chrome.storage.local.get(['pendingRequests'], (data) => {
             const pendingRequests = data.pendingRequests || [];
+            
+            // Check if there's already a pending request for this origin
+            const existingRequest = pendingRequests.find(req => req.origin === origin && req.type === 'connect');
+            if (existingRequest) {
+                console.log(`${EXTENSION_NAME}: Request already pending for ${origin}`);
+                return;
+            }
+            
             pendingRequests.push(request);
             
             // Store the request
@@ -314,11 +291,13 @@ function handleConnectRequest(message, sender, sendResponse) {
         }, 5 * 60 * 1000); // 5 minutes
 
         // Store the response callback and timeout in global object to be called when user responds
-        pendingCallbacks[request.id] = {
-            sendResponse,
-            timeout: responseTimeout,
-            origin
-        };
+        if (!needsImmediateResponse) {
+            pendingCallbacks[request.id] = {
+                sendResponse,
+                timeout: responseTimeout,
+                origin
+            };
+        }
     });
 }
 
@@ -378,34 +357,47 @@ function handleConnectionApproval(approved, origin, requestId, rememberSite = fa
                 connectedSites,
                 trustedSites
             });
+            
+            // If we have a stored callback for this request, call it
+            if (pendingCallbacks[requestId]) {
+                try {
+                    clearTimeout(pendingCallbacks[requestId].timeout);
+                    pendingCallbacks[requestId].sendResponse({
+                        success: true,
+                        method: 'eth_requestAccounts',
+                        result: accountsToUse
+                    });
+                    console.log(`${EXTENSION_NAME}: Sent approval response for ${origin} with accounts:`, accountsToUse);
+                } catch (err) {
+                    console.error(`${EXTENSION_NAME}: Error sending approval response:`, err);
+                }
+                delete pendingCallbacks[requestId];
+            }
+        } else {
+            // If rejection and we have a stored callback, send error
+            if (pendingCallbacks[requestId]) {
+                try {
+                    clearTimeout(pendingCallbacks[requestId].timeout);
+                    pendingCallbacks[requestId].sendResponse({
+                        success: false,
+                        error: { code: 4001, message: 'User rejected the request' }
+                    });
+                    console.log(`${EXTENSION_NAME}: Sent rejection response for ${origin}`);
+                } catch (err) {
+                    console.error(`${EXTENSION_NAME}: Error sending rejection response:`, err);
+                }
+                delete pendingCallbacks[requestId];
+            }
         }
         
         // Update pending requests
         chrome.storage.local.set({ pendingRequests }, () => {
-            // Respond to the content script that initiated the request
-            try {
-                chrome.tabs.sendMessage(request.tabId, {
-                    type: 'CONNECTION_RESPONSE',
-                    requestId: request.id,
-                    approved,
-                    accounts: approved ? accountsToUse : []
-                }).catch(err => console.error('Error sending response:', err));
-                
-                // Broadcast to all content scripts for the origin
-                chrome.tabs.query({}, (tabs) => {
-                    tabs.forEach((tab) => {
-                        if (tab.url && tab.url.includes(origin)) {
-                            chrome.tabs.sendMessage(tab.id, {
-                                type: 'WALLETX_CONNECTION_APPROVED',
-                                origin,
-                                accounts: approved ? accountsToUse : []
-                            }).catch(err => console.log(`Could not send to tab ${tab.id}:`, err));
-                        }
-                    });
-                });
-            } catch (e) {
-                console.error('Error sending connection response:', e);
-            }
+            // Notify all tabs about the change
+            broadcastToContentScripts({
+                type: approved ? 'WALLETX_CONNECTION_APPROVED' : 'WALLETX_CONNECTION_REJECTED',
+                origin: origin,
+                accounts: approved ? accountsToUse : []
+            });
             
             // Update popup if open
             broadcastStateUpdate();

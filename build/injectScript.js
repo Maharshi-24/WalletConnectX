@@ -114,31 +114,50 @@ const walletXProvider = {
         try {
             // Handle eth_requestAccounts - connect to wallet
             if (method === 'eth_requestAccounts') {
-                // First check if we already have the accounts from state
-                if (this.accounts && this.accounts.length) {
-                    console.log('WalletX: Using existing accounts:', this.accounts);
-                    this.connected = true;
-                    this.selectedAddress = this.accounts[0] || null;
+                // If already connected with accounts, return them
+                if (this.connected && this.accounts && this.accounts.length) {
+                    console.log('WalletX: Already connected, returning accounts:', this.accounts);
                     return this.accounts;
                 }
                 
-                // Request connection if not already connected
-                if (!this.connected || !this.accounts.length) {
-                    console.log('WalletX: Requesting account connection');
+                console.log('WalletX: Requesting wallet connection...');
+                
+                // Show pending connection UI to the user
+                this._showConnectionPending();
+                
+                try {
                     const result = await sendMessage({
                         type: 'WALLETX_CONNECT',
                         origin: window.location.origin
                     });
-
-                    this.accounts = result || [];
-                    this.selectedAddress = this.accounts[0] || null;
-                    this.connected = !!this.accounts.length;
-
-                    return this.accounts;
+                    
+                    if (result && Array.isArray(result) && result.length > 0) {
+                        // Connection successful
+                        this.accounts = result;
+                        this.selectedAddress = this.accounts[0] || null;
+                        this.connected = true;
+                        
+                        // Hide pending UI now that we're connected
+                        this._hideConnectionPending();
+                        
+                        return this.accounts;
+                    } else {
+                        // No accounts returned is probably user rejection
+                        this._hideConnectionPending();
+                        
+                        // Standardize MetaMask-like error format
+                        const error = new Error('User rejected the request.');
+                        error.code = 4001;
+                        throw error;
+                    }
+                } catch (error) {
+                    this._hideConnectionPending();
+                    
+                    // Format the error like MetaMask would
+                    const formattedError = new Error(error.message || 'User rejected the request.');
+                    formattedError.code = error.code || 4001;
+                    throw formattedError;
                 }
-
-                // Already connected, return existing accounts
-                return this.accounts;
             }
 
             // Handle eth_accounts - return current accounts
@@ -280,6 +299,68 @@ const walletXProvider = {
                 reject(new Error('Request timed out'));
             }, 10000); // 10 second timeout
         });
+    },
+
+    // UI helpers for connection status
+    _showConnectionPending() {
+        // Remove any existing notification
+        this._hideConnectionPending();
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.id = 'walletx-pending-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            z-index: 9999;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 138, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        `;
+        
+        // Create spinner element
+        const spinner = document.createElement('div');
+        spinner.style.cssText = `
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #FF8A00;
+            animation: walletx-spin 1s linear infinite;
+        `;
+        
+        // Add animation style
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes walletx-spin {
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        const text = document.createElement('div');
+        text.textContent = 'Wallet connection pending. Please check the extension popup.';
+        
+        notification.appendChild(spinner);
+        notification.appendChild(text);
+        document.body.appendChild(notification);
+    },
+
+    _hideConnectionPending() {
+        const existingNotification = document.getElementById('walletx-pending-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
     }
 };
 

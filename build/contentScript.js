@@ -94,48 +94,44 @@ window.addEventListener('message', function (event) {
     }
 }, false);
 
-// Listen for messages from the background script
+// Listen for messages from the extension's background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (!message.type) return;
-
-    console.log('WalletX: Content script received message from background:', message);
-
-    // Handle events from the background script
-    if (message.type === 'WALLETX_CONNECTION_APPROVED' || message.type === 'CROSS_NET_WALLET_CONNECTION_APPROVED') {
-        // Update local state
-        siteConnected = true;
-        siteAccounts = message.accounts || [];
-
-        // Notify the page
+    console.log('ContentScript: Received message from background:', message);
+    
+    // Handle successful connection
+    if (message.type === 'WALLETX_CONNECTION_APPROVED') {
+        console.log('ContentScript: Connection approved for', message.origin, 'with accounts:', message.accounts);
+        
+        // Forward to page
         window.postMessage({
-            type: 'WALLETX_ACCOUNTS_CHANGED',
-            accounts: siteAccounts
+            type: 'WALLETX_CONNECT_RESPONSE',
+            success: true,
+            result: message.accounts
         }, '*');
-
-        console.log('WalletX: Site connection approved, accounts:', siteAccounts);
+        
+        // Update wallet state
+        sendWalletState();
     }
-    else if (message.type === 'WALLETX_DISCONNECTED' || message.type === 'CROSS_NET_WALLET_DISCONNECTED') {
-        // Update local state
-        siteConnected = false;
-        siteAccounts = [];
-
-        // Notify the page
+    
+    // Handle connection rejection
+    if (message.type === 'WALLETX_CONNECTION_REJECTED') {
+        console.log('ContentScript: Connection rejected for', message.origin);
+        
+        // Forward to page
         window.postMessage({
-            type: 'WALLETX_ACCOUNTS_CHANGED',
-            accounts: []
+            type: 'WALLETX_CONNECT_RESPONSE',
+            success: false,
+            error: { code: 4001, message: 'User rejected the request' }
         }, '*');
-
-        console.log('WalletX: Site disconnected');
     }
-    else if (message.type === 'WALLETX_CHAIN_CHANGED' || message.type === 'CROSS_NET_WALLET_CHAIN_CHANGED') {
-        // Notify the page
-        window.postMessage({
-            type: 'WALLETX_CHAIN_CHANGED',
-            chainId: message.chainId
-        }, '*');
-
-        console.log('WalletX: Chain changed to:', message.chainId);
+    
+    // Handle state updates
+    if (message.type === 'STATE_UPDATE') {
+        console.log('ContentScript: Received state update, syncing with page');
+        sendWalletState();
     }
+    
+    return true;
 });
 
 // Handle connection requests

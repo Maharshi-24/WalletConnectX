@@ -44,7 +44,9 @@ const StyledHeader = styled("header", {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottom: "1px solid $gray4",
+    borderBottom: "1px solid $border",
+    backgroundColor: "$secondary",
+    color: "$text"
 })
 
 const StyledContent = styled("div", {
@@ -57,6 +59,7 @@ const StyledCard = styled("div", {
     boxShadow: "0 4px 12px#000000",
     overflow: "hidden",
     marginBottom: "16px",
+    width: "100%",
     transition: "transform 0.2s ease, box-shadow 0.2s ease",
     "&:hover": {
         boxShadow: "0 8px 20px rgba(0, 0, 0, 0.12)",
@@ -77,8 +80,8 @@ const StyledCardHeader = styled("div", {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    background: "#f8f9fa",
-    borderBottom: "1px solid #eaecef",
+    background: "$surface",
+    borderBottom: "1px solid $border",
 })
 
 const StyledCardTitle = styled("h2", {
@@ -160,6 +163,7 @@ const StyledTabs = styled(Tabs.Root, {
     display: "flex",
     flexDirection: "column",
     width: "100%",
+    maxWidth: "100%"
 })
 
 const StyledTabsList = styled(Tabs.List, {
@@ -168,6 +172,7 @@ const StyledTabsList = styled(Tabs.List, {
     borderBottom: "1px solid #eaecef",
     marginBottom: "16px",
     overflowX: "auto",
+    width: "100%"
 })
 
 const fadeIn = keyframes({
@@ -200,6 +205,8 @@ const StyledTabsContent = styled(Tabs.Content, {
     flexGrow: 1,
     outline: "none",
     animation: `${fadeIn} 200ms ease`,
+    width: "100%",
+    maxWidth: "100%"
 })
 
 const StyledInput = styled("input", {
@@ -262,9 +269,9 @@ const slideUp = keyframes({
 })
 
 const StyledDialogContent = styled(Dialog.Content, {
-    backgroundColor: "white",
+    backgroundColor: "$secondary",
     borderRadius: "16px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
     position: "fixed",
     top: "50%",
     left: "50%",
@@ -275,6 +282,7 @@ const StyledDialogContent = styled(Dialog.Content, {
     padding: "24px",
     animation: `${slideUp} 250ms cubic-bezier(0.16, 1, 0.3, 1)`,
     "&:focus": { outline: "none" },
+    color: "$text"
 })
 
 const StyledDialogTitle = styled(Dialog.Title, {
@@ -285,14 +293,15 @@ const StyledDialogTitle = styled(Dialog.Title, {
 })
 
 const StyledToastRoot = styled(Toast.Root, {
-    backgroundColor: "white",
+    backgroundColor: "$secondary",
     borderRadius: "12px",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
     padding: "12px 16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    border: "1px solid #eaecef",
+    border: "1px solid $border",
+    color: "$text"
 })
 
 const slideIn = keyframes({
@@ -329,7 +338,7 @@ const StyledNetworkItem = styled("div", {
     cursor: "pointer",
     transition: "background 0.2s ease",
     "&:hover": {
-        background: "#f8f9fa",
+        background: "$surface",
     },
     variants: {
         active: {
@@ -377,7 +386,7 @@ const StyledTransactionIcon = styled("div", {
 })
 
 const StyledInfoBox = styled("div", {
-    background: "#f8f9fa",
+    background: "$surface",
     padding: "12px 16px",
     borderRadius: "12px",
     fontSize: "14px",
@@ -385,6 +394,7 @@ const StyledInfoBox = styled("div", {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    color: "$text",
     variants: {
         monospace: {
             true: {
@@ -395,7 +405,7 @@ const StyledInfoBox = styled("div", {
             true: {
                 cursor: "pointer",
                 "&:hover": {
-                    background: "#f1f1f1",
+                    background: "$surfaceHover",
                 },
             },
         },
@@ -663,16 +673,16 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const renderWalletInfo = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle>
+                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
                     <FaWallet style={{ color: "#FF8000" }} />
                     Wallet Information
                 </StyledCardTitle>
             </StyledCardHeader>
 
-            <StyledCardBody>
-                <div style={{ marginBottom: "16px" }}>
-                    <div style={{ fontSize: "14px", color: "#666", marginBottom: "8px" }}>Wallet Address</div>
-                    <StyledInfoBox>
+            <StyledCardBody style={{ width: "100%" }}>
+                <div style={{ marginBottom: "16px", width: "100%" }}>
+                    <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "8px" }}>Wallet Address</div>
+                    <StyledInfoBox style={{ width: "100%" }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{wallet.address}</span>
                         <div style={{ display: "flex", gap: "8px" }}>
                             <StyledButton
@@ -701,6 +711,11 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                                 fgColor={"#000000"}
                                                 level={"H"}
                                                 includeMargin={true}
+                                                style={{
+                                                    borderRadius: "8px",
+                                                    padding: "8px",
+                                                    backgroundColor: "#ffffff"
+                                                }}
                                             />
                                         </div>
 
@@ -715,7 +730,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                             >
                                                 {wallet.address}
                                             </div>
-                                            <div style={{ fontSize: "14px", color: "#666" }}>
+                                            <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)" }}>
                                                 Scan this QR code to receive {currentNetwork.currencySymbol}
                                             </div>
                                         </div>
@@ -752,9 +767,9 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                     </StyledInfoBox>
                 </div>
 
-                <div>
-                    <div style={{ fontSize: "14px", color: "#666", marginBottom: "8px" }}>Private Key</div>
-                    <StyledInfoBox>
+                <div style={{ width: "100%" }}>
+                    <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "8px" }}>Private Key</div>
+                    <StyledInfoBox style={{ width: "100%" }}>
                         {showPrivateKey ? (
                             <>
                                 <span style={{ wordBreak: "break-all" }}>{wallet.privateKey}</span>
@@ -783,7 +798,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                     </StyledInfoBox>
                 </div>
 
-                <StyledAlert variant="warning" style={{ marginTop: "16px" }}>
+                <StyledAlert variant="warning" style={{ marginTop: "16px", width: "100%" }}>
                     <FaExclamationTriangle style={{ flexShrink: 0, marginTop: "3px" }} />
                     <div style={{ fontSize: "14px" }}>
                         Never share your private key with anyone! Anyone with your private key can access and transfer your funds.
@@ -797,7 +812,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const renderTransactionsSection = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle>
+                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
                     <FaExchangeAlt style={{ color: "#FF8000" }} />
                     Recent Transactions
                 </StyledCardTitle>
@@ -806,9 +821,9 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 </StyledButton>
             </StyledCardHeader>
 
-            <StyledCardBody>
+            <StyledCardBody style={{ width: "100%" }}>
                 {isLoadingTx ? (
-                    <div style={{ textAlign: "center", padding: "32px 0" }}>
+                    <div style={{ textAlign: "center", padding: "32px 0", width: "100%" }}>
                         <div className="loading-spinner" style={{ marginBottom: "8px" }}></div>
                         <div>Loading transactions...</div>
                     </div>
@@ -818,16 +833,16 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                         <div>{txError}</div>
                     </StyledAlert>
                 ) : transactions.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "32px 0", color: "#666" }}>
+                    <div style={{ textAlign: "center", padding: "32px 0", color: "var(--colors-textSecondary)", width: "100%" }}>
                         <p>No transactions found in the last 24 hours</p>
                         <p style={{ fontSize: "13px" }}>
                             Transactions will appear here when you send or receive {currentNetwork.currencySymbol}
                         </p>
                     </div>
                 ) : (
-                    <div>
+                    <div style={{ width: "100%" }}>
                         {transactions.map((tx, index) => (
-                            <StyledTransactionItem key={tx.hash}>
+                            <StyledTransactionItem key={tx.hash} style={{ width: "100%" }}>
                                 <div style={{ display: "flex", alignItems: "center" }}>
                                     <StyledTransactionIcon type={tx.type}>
                                         {tx.type === "outgoing" ? <FaArrowUp /> : <FaArrowDown />}
@@ -842,7 +857,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                         <div
                                             style={{
                                                 fontSize: "12px",
-                                                color: "#666",
+                                                color: "var(--colors-textSecondary)",
                                                 display: "flex",
                                                 alignItems: "center",
                                                 marginTop: "2px",
@@ -868,7 +883,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                         rel="noopener noreferrer"
                                         style={{
                                             fontSize: "12px",
-                                            color: "#1890ff",
+                                            color: "var(--colors-primary)",
                                             display: "flex",
                                             alignItems: "center",
                                             justifyContent: "flex-end",
@@ -884,7 +899,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 )}
 
                 {transactions.length > 0 && (
-                    <div style={{ marginTop: "16px", textAlign: "center", color: "#666", fontSize: "13px" }}>
+                    <div style={{ marginTop: "16px", textAlign: "center", color: "var(--colors-textSecondary)", fontSize: "13px", width: "100%" }}>
                         Showing transactions from the last 24 hours.
                         <br />
                         Full history can be viewed on {currentNetwork.chainName}'s block explorer.
@@ -894,26 +909,25 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
         </StyledCard>
     )
 
-    // Receive Section - QR Code
-
     // Network Settings Section
     const renderNetworkSettings = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle>
+                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
                     <FaNetworkWired style={{ color: "#FF8000" }} />
                     Network Settings
                 </StyledCardTitle>
             </StyledCardHeader>
 
-            <StyledCardBody>
-                <div style={{ fontSize: "14px", color: "#666", marginBottom: "12px" }}>Select Default Network</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <StyledCardBody style={{ width: "100%" }}>
+                <div style={{ fontSize: "14px", color: "var(--colors-textSecondary)", marginBottom: "12px" }}>Select Default Network</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
                     {availableChains.map((chain) => (
                         <StyledNetworkItem
                             key={chain.chainId}
                             active={currentNetwork.chainId === chain.chainId}
                             onClick={() => handleNetworkChange(chain)}
+                            style={{ width: "100%" }}
                         >
                             <div style={{ display: "flex", alignItems: "center" }}>
                                 <div
@@ -933,7 +947,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                                 </div>
                                 <div>
                                     <div style={{ fontWeight: 500 }}>{chain.chainName}</div>
-                                    <div style={{ fontSize: "12px", color: "#666" }}>
+                                    <div style={{ fontSize: "12px", color: "var(--colors-textSecondary)" }}>
                                         {chain.chainType} - {chain.currencySymbol}
                                     </div>
                                 </div>
@@ -954,17 +968,17 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const renderSecuritySettings = () => (
         <StyledCard>
             <StyledCardHeader>
-                <StyledCardTitle>
+                <StyledCardTitle style={{ color: "var(--colors-primary)" }}>
                     <FaShieldAlt style={{ color: "#FF8000" }} />
                     Security
                 </StyledCardTitle>
             </StyledCardHeader>
 
-            <StyledCardBody>
+            <StyledCardBody style={{ width: "100%" }}>
                 <StyledButton
                     variant="secondary"
                     size="full"
-                    style={{ marginBottom: "12px" }}
+                    style={{ marginBottom: "12px", width: "100%" }}
                     onClick={() => {
                         /* This would open a change password modal */
                     }}
@@ -973,12 +987,12 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                     Change Password
                 </StyledButton>
 
-                <StyledButton variant="danger" size="full" onClick={onLogout}>
+                <StyledButton variant="danger" size="full" style={{ width: "100%" }} onClick={onLogout}>
                     <FaSignOutAlt style={{ marginRight: "8px" }} />
                     Logout
                 </StyledButton>
 
-                <StyledAlert variant="info" style={{ marginTop: "16px" }}>
+                <StyledAlert variant="info" style={{ marginTop: "16px", width: "100%" }}>
                     <FaShieldAlt style={{ flexShrink: 0, marginTop: "3px" }} />
                     <div style={{ fontSize: "14px" }}>
                         Remember to keep your recovery phrase and private key in a safe place. They're the only way to recover your
@@ -997,14 +1011,19 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                         variant="icon"
                         size="small"
                         onClick={onBack}
-                        style={{ marginRight: "12px" }}
+                        style={{ 
+                            marginRight: "12px",
+                            backgroundColor: "var(--colors-surface)",
+                            color: "var(--colors-primary)",
+                            padding: "10px",
+                            borderRadius: "50%"
+                        }}
                         aria-label="Go back"
                     >
-                        <FaArrowLeft />
+                        <FaArrowLeft size={14} />
                     </StyledButton>
-                    <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>Settings</h1>
+                    <h1 style={{ margin: 0, fontSize: "18px", fontWeight: 600, color: "var(--colors-primary)" }}>Settings</h1>
                 </div>
-                <FaCog style={{ color: "#666" }} />
             </StyledHeader>
 
             <StyledContent>
@@ -1039,7 +1058,7 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 </StyledTabs>
 
                 {/* App Version */}
-                <div style={{ textAlign: "center", color: "#666", fontSize: "12px", marginTop: "24px" }}>
+                <div style={{ textAlign: "center", color: "var(--colors-textSecondary)", fontSize: "12px", marginTop: "24px" }}>
                     Ethereum Wallet v1.0.0
                 </div>
             </StyledContent>
@@ -1072,8 +1091,8 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 }
                 
                 body {
-                    background-color: #f8f9fa;
-                    color: #222;
+                    background-color: var(--colors-background);
+                    color: var(--colors-text);
                 }
             `}</style>
         </StyledContainer>

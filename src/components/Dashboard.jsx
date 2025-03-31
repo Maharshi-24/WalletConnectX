@@ -94,6 +94,23 @@ const globalStyles = globalCss({
         '0%': { transform: 'rotate(0deg)' },
         '100%': { transform: 'rotate(360deg)' },
     },
+    '.custom-scrollbar': {
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'var(--colors-surface) transparent',
+        '&::-webkit-scrollbar': {
+            width: '6px',
+        },
+        '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+        },
+        '&::-webkit-scrollbar-thumb': {
+            background: 'var(--colors-surface)',
+            borderRadius: '3px',
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+            background: 'var(--colors-primary)',
+        }
+    }
 });
 
 // Create styled components to replace missing Radix components
@@ -806,11 +823,11 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                     <CardContent>
                         <Flex justify="between">
                             <Flex gap="3">
-                                <AvatarStyled>
+                                <AvatarStyled size="md">
                                     <Globe size={18} />
                                 </AvatarStyled>
 
-                                <div>
+                                <div style={{ width: '160px' }}>
                                     <Text weight="medium">{selectedChain.chainName}</Text>
                                     <Text size="xs" color="muted">
                                         {selectedChain.chainType}
@@ -831,7 +848,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                             position: 'fixed',
                             inset: 0
                         }} />
-                        <DialogContent style={{
+                        <DialogContent className="custom-scrollbar" style={{
                             backgroundColor: 'var(--colors-secondary)',
                             color: 'var(--colors-text)',
                             borderRadius: '8px',
@@ -848,7 +865,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                             overflowY: 'auto'
                         }}>
                             <DialogHeader>
-                                <Flex justify="between">
+                                <Flex justify="between" align="center" style={{ width: '100%', padding: '8px 16px' }}>
                                     <DialogTitle style={{
                                         fontSize: '1.2rem',
                                         fontWeight: 600,
@@ -859,7 +876,15 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                     </DialogTitle>
 
                                     <DialogClose asChild>
-                                        <Button variant="close">
+                                        <Button 
+                                            variant="close" 
+                                            style={{
+                                                backgroundColor: 'var(--colors-surface)',
+                                                color: 'var(--colors-primary)',
+                                                borderRadius: '50%',
+                                                padding: '8px'
+                                            }}
+                                        >
                                             <X size={16} />
                                         </Button>
                                     </DialogClose>
@@ -885,7 +910,9 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                                 '&:hover': {
                                                     backgroundColor: '$surface'
                                                 },
-                                                justifyContent: 'flex-start'
+                                                justifyContent: 'flex-start',
+                                                height: '72px',
+                                                width: '100%'
                                             }}
                                         >
                                             <Flex justify="between" full>
@@ -894,7 +921,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                                         <Globe size={16} />
                                                     </AvatarStyled>
 
-                                                    <div style={{ textAlign: 'left' }}>
+                                                    <div style={{ textAlign: 'left', width: '160px' }}>
                                                         <Text weight="medium">{chain.chainName}</Text>
                                                         <Text size="xs" color="muted">
                                                             {chain.chainType}
@@ -999,8 +1026,8 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                         <div className="qr-code-container" style={{ 
                             textAlign: 'center', 
                             marginBottom: '16px',
-                            padding: '16px',
-                            backgroundColor: 'white',
+                            padding: '8px',
+                            backgroundColor: 'var(--colors-secondary)',
                             borderRadius: '16px'
                         }}>
                             <QRCodeSVG
@@ -1010,6 +1037,11 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                 fgColor={'#000000'}
                                 level={'H'}
                                 includeMargin={true}
+                                style={{
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    backgroundColor: '#ffffff'
+                                }}
                             />
                         </div>
 
@@ -1057,21 +1089,52 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                         </div>
 
                         {/* Buttons */}
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            gap: '12px', 
+                            marginTop: '12px',
+                            backgroundColor: 'var(--colors-surface)',
+                            padding: '16px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255, 107, 0, 0.2)'
+                        }}>
                             <Button
-                                variant="secondary"
-                                css={{ flex: 1 }}
+                                variant="outline"
+                                css={{ 
+                                    flex: 1,
+                                    height: '42px',
+                                    border: '1px solid var(--colors-primary)',
+                                    backgroundColor: 'rgba(255, 107, 0, 0.05)',
+                                    color: 'var(--colors-primary)',
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': { 
+                                        transform: 'translateY(-2px)',
+                                        backgroundColor: 'rgba(255, 107, 0, 0.1)'
+                                    }
+                                }}
                                 onClick={() => copyToClipboard(wallet.address)}
                             >
-                                <Copy size={16} />
+                                <Copy size={16} style={{ marginRight: '8px' }} />
                                 Copy Address
                             </Button>
                             <Button
                                 variant="primary"
-                                css={{ flex: 1 }}
+                                css={{ 
+                                    flex: 1,
+                                    height: '42px',
+                                    backgroundColor: 'var(--colors-primary)',
+                                    border: '1px solid var(--colors-primary)',
+                                    boxShadow: '0 2px 8px rgba(255, 107, 0, 0.2)',
+                                    transition: 'all 0.2s ease-in-out',
+                                    '&:hover': { 
+                                        transform: 'translateY(-2px)',
+                                        backgroundColor: 'var(--colors-primaryHover)',
+                                        boxShadow: '0 4px 12px rgba(255, 107, 0, 0.3)'
+                                    }
+                                }}
                                 onClick={downloadQrCode}
                             >
-                                <Download size={16} />
+                                <Download size={16} style={{ marginRight: '8px' }} />
                                 Download QR
                             </Button>
                         </div>

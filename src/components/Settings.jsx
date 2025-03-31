@@ -483,6 +483,45 @@ const StyledQrContainer = styled("div", {
     padding: "24px 0",
 })
 
+const TrustedSitesContainer = styled('div', {
+    backgroundColor: '#1A1A1A',
+    borderRadius: '12px',
+    padding: '16px',
+    marginTop: '16px',
+});
+
+const TrustedSitesList = styled('ul', {
+    listStyle: 'none',
+    padding: '0',
+    margin: '12px 0 0 0',
+});
+
+const TrustedSiteItem = styled('li', {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 0',
+    borderBottom: '1px solid #333',
+    fontSize: '14px',
+    
+    '&:last-child': {
+        borderBottom: 'none',
+    }
+});
+
+const RemoveButton = styled('button', {
+    background: '#E74C3C',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    cursor: 'pointer',
+    
+    '&:hover': {
+        background: '#C0392B',
+    }
+});
 
 function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) {
     const [showPrivateKey, setShowPrivateKey] = useState(false)
@@ -492,12 +531,70 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
     const [activeTab, setActiveTab] = useState("wallet")
     const [isToastOpen, setIsToastOpen] = useState(false)
     const [toastMessage, setToastMessage] = useState("")
+    const [trustedSites, setTrustedSites] = useState([]);
+    
+    // Define isExtension properly
+    const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
 
     useEffect(() => {
         // Load available chains
         const chains = Object.values(CHAINS_CONFIG)
         setAvailableChains(chains)
     }, [])
+
+    // Fetch trusted sites on component mount - add safety check
+    useEffect(() => {
+        if (isExtension) {
+            getTrustedSites();
+        }
+    }, [isExtension]);
+
+    // Function to get trusted sites from background - add safety checks
+    const getTrustedSites = async () => {
+        if (!isExtension) return;
+        
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'WALLETX_GET_TRUSTED_SITES'
+            });
+            
+            if (response && response.success) {
+                setTrustedSites(response.trustedSites || []);
+            }
+        } catch (error) {
+            console.error('Error fetching trusted sites:', error);
+        }
+    };
+
+    // Function to remove a site from trusted sites - add safety checks
+    const removeTrustedSite = async (domain) => {
+        if (!isExtension) return;
+        
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'WALLETX_REMOVE_TRUSTED_SITE',
+                domain
+            });
+            
+            if (response && response.success) {
+                setTrustedSites(trustedSites.filter(site => site !== domain));
+                showNotification('Site removed from trusted list');
+            }
+        } catch (error) {
+            console.error('Error removing trusted site:', error);
+        }
+    };
+    
+    // Add missing showNotification function
+    const showNotification = (message) => {
+        setToastMessage(message);
+        setIsToastOpen(true);
+        
+        // Auto close after 3 seconds
+        setTimeout(() => {
+            setIsToastOpen(false);
+        }, 3000);
+    };
 
     const togglePrivateKey = () => {
         setShowPrivateKey(!showPrivateKey)
@@ -820,6 +917,39 @@ function Settings({ wallet, onBack, selectedChain, onNetworkChange, onLogout }) 
                 <div style={{ textAlign: "center", color: "#999999", fontSize: "12px", marginTop: "24px" }}>
                     Ethereum Wallet v1.0.0
                 </div>
+
+                {isExtension && (
+                    <TrustedSitesContainer>
+                        <StyledCardHeader>
+                            <StyledCardTitle style={{ color: "#FF8000" }}>
+                                <FaNetworkWired style={{ color: "#FF8000" }} />
+                                Trusted Sites
+                            </StyledCardTitle>
+                        </StyledCardHeader>
+                        
+                        <StyledCardBody style={{ width: "100%" }}>
+                            <div style={{ fontSize: "14px", color: "#999999", marginBottom: "12px" }}>
+                                These sites will be automatically approved for connection without confirmation prompts.
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+                                {trustedSites.length > 0 ? (
+                                    trustedSites.map((site, index) => (
+                                        <TrustedSiteItem key={index}>
+                                            {site}
+                                            <RemoveButton onClick={() => removeTrustedSite(site)}>
+                                                Remove
+                                            </RemoveButton>
+                                        </TrustedSiteItem>
+                                    ))
+                                ) : (
+                                    <div style={{ fontStyle: 'italic', color: '#777' }}>
+                                        No trusted sites added yet
+                                    </div>
+                                )}
+                            </div>
+                        </StyledCardBody>
+                    </TrustedSitesContainer>
+                )}
             </StyledContent>
 
             {/* Improved Toast Notification */}

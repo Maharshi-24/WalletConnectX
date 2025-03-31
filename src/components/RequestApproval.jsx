@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { styled } from '@stitches/react';
 import {
     ShieldCheckIcon,
@@ -199,6 +199,26 @@ const Icon = styled('div', {
     justifyContent: 'center',
 });
 
+const CheckboxContainer = styled('div', {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    margin: '8px 0',
+});
+
+const Checkbox = styled('input', {
+    width: '18px',
+    height: '18px',
+    accentColor: '#3498DB',
+    cursor: 'pointer',
+});
+
+const CheckboxLabel = styled('label', {
+    fontSize: '14px',
+    color: '#BBB',
+    cursor: 'pointer',
+});
+
 // Component to format address
 const FormattedAddress = ({ address }) => {
     if (!address) return null;
@@ -231,6 +251,8 @@ const RequestApproval = ({
     loading,
     error: externalError
 }) => {
+    const [rememberSite, setRememberSite] = useState(false);
+    
     // Handle case where request is null or undefined
     if (!request) {
         return (
@@ -277,6 +299,12 @@ const RequestApproval = ({
 
     // Connection request UI
     if (isConnection) {
+        const domain = getDomainName(origin);
+        
+        const handleApprove = () => {
+            onApprove(request.id, rememberSite ? { addToTrusted: true, domain } : {});
+        };
+        
         return (
             <RequestContainer>
                 <RequestHeader>
@@ -313,6 +341,18 @@ const RequestApproval = ({
                     </DataRow>
                 </DataSection>
 
+                <CheckboxContainer>
+                    <Checkbox 
+                        type="checkbox" 
+                        id="remember-site" 
+                        checked={rememberSite} 
+                        onChange={() => setRememberSite(!rememberSite)}
+                    />
+                    <CheckboxLabel htmlFor="remember-site">
+                        Trust this site and auto-connect in the future
+                    </CheckboxLabel>
+                </CheckboxContainer>
+
                 <WarningMessage>
                     <Icon>
                         <ExclamationCircleIcon width={20} height={20} color="#E74C3C" />
@@ -332,21 +372,21 @@ const RequestApproval = ({
                 )}
 
                 <ActionButtons>
-                    <Button
-                        variant="reject"
-                        onClick={onReject ? onReject : onClose}
+                    <Button 
+                        variant="reject" 
+                        onClick={() => onReject(request.id)}
                         disabled={loading}
                     >
                         <XCircleIcon width={20} height={20} />
-                        {loading ? 'Processing...' : 'Reject'}
+                        Reject
                     </Button>
-                    <Button
-                        variant="approve"
-                        onClick={onApprove}
+                    <Button 
+                        variant="approve" 
+                        onClick={handleApprove}
                         disabled={loading}
                     >
                         <CheckCircleIcon width={20} height={20} />
-                        {loading ? 'Processing...' : 'Connect'}
+                        Connect
                     </Button>
                 </ActionButtons>
             </RequestContainer>

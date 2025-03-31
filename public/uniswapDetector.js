@@ -9,7 +9,8 @@
         name: 'WalletX',
         icon: chrome.runtime.getURL('icon.svg'),
         description: 'A secure multi-chain crypto wallet for Ethereum and other EVM networks',
-        uuid: '5099a4b6-4375-45dd-a505-1f8d095a1098' // Unique ID for the wallet
+        uuid: '5099a4b6-4375-45dd-a505-1f8d095a1098', // Unique ID for the wallet
+        extensionId: chrome.runtime.id // Add the extension ID for direct detection
     };
 
     // Make sure window.ethereum is exposed before we start
@@ -25,6 +26,27 @@
         window.ethereum.isWalletX = true;
         window.ethereum.isMetaMask = true; // This is critical for dApp detection
         window.ethereum._walletInfo = walletInfo;
+        
+        // Add additional detection properties
+        window.ethereum._isWallet = true;
+        window.ethereum._metamask = { isUnlocked: true }; // For MetaMask detection
+        window.ethereum.extensionId = chrome.runtime.id;
+        window.ethereum._walletInfo = walletInfo;
+        
+        // Make sure request is properly defined
+        if (!window.ethereum.request) {
+            console.warn('WalletX: Adding missing request method to window.ethereum');
+            window.ethereum.request = async (args) => {
+                if (args.method === 'eth_requestAccounts') {
+                    return window.ethereum.enable();
+                }
+                // Forward to original provider if available
+                if (window.ethereum._originalProvider && window.ethereum._originalProvider.request) {
+                    return window.ethereum._originalProvider.request(args);
+                }
+                throw new Error('Method not implemented');
+            };
+        }
 
         // Add to window.ethereum.providers if it exists (for multi-wallet environments)
         if (window.ethereum.providers) {
@@ -38,6 +60,25 @@
 
         console.log('WalletX: Successfully configured ethereum provider for dApp detection');
         monitorForUniswapDetection();
+        
+        // Also set global variables for 1inch and similar sites
+        window._walletX = {
+            installed: true,
+            extensionId: chrome.runtime.id,
+            provider: window.ethereum
+        };
+        
+        // Dispatch a custom event so sites can detect our wallet
+        try {
+            window.dispatchEvent(new CustomEvent('walletx_initialized', { 
+                detail: { 
+                    name: 'WalletX',
+                    id: chrome.runtime.id
+                } 
+            }));
+        } catch (e) {
+            console.error('WalletX: Error dispatching custom event', e);
+        }
     }
 
     // Function to monitor for Uniswap detection attempts

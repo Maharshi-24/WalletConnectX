@@ -1079,12 +1079,12 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
         }
     }, [isExtensionContext]);
 
-    // Apply global styles
+        // Apply global styles
     useEffect(() => {
         globalStyles();
     }, []);
 
-    // Set available chains
+        // Set available chains
     useEffect(() => {
         const chains = Object.values(CHAINS_CONFIG);
         setAvailableChains(chains);
@@ -1099,32 +1099,32 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
     }, [selectedChain, wallet?.address]);
 
     // Fetch wallet balance
-    const fetchWalletDetails = async () => {
-        try {
+        const fetchWalletDetails = async () => {
+            try {
             if (!wallet?.address) {
                 throw new Error("No wallet address available");
             }
 
-            // If we have a selected chain, use its RPC URL
-            const provider = new ethers.providers.JsonRpcProvider(selectedChain.rpcUrl);
+                // If we have a selected chain, use its RPC URL
+                const provider = new ethers.providers.JsonRpcProvider(selectedChain.rpcUrl);
 
-            // Get current balance
-            const balanceWei = await provider.getBalance(wallet.address);
-            const balanceEth = ethers.utils.formatEther(balanceWei);
-            setBalance(balanceEth);
+                // Get current balance
+                const balanceWei = await provider.getBalance(wallet.address);
+                const balanceEth = ethers.utils.formatEther(balanceWei);
+                setBalance(balanceEth);
 
-            // Get network info and set the network name
-            const networkInfo = await provider.getNetwork();
+                // Get network info and set the network name
+                const networkInfo = await provider.getNetwork();
 
-            if (networkInfo.name === 'homestead') {
-                setNetwork('Ethereum Mainnet');
-            } else if (networkInfo.chainId === parseInt(selectedChain.chainId, 16)) {
-                setNetwork(selectedChain.chainName);
-            } else {
-                setNetwork(networkInfo.name);
-            }
-        } catch (error) {
-            console.error('Error fetching wallet details:', error);
+                if (networkInfo.name === 'homestead') {
+                    setNetwork('Ethereum Mainnet');
+                } else if (networkInfo.chainId === parseInt(selectedChain.chainId, 16)) {
+                    setNetwork(selectedChain.chainName);
+                } else {
+                    setNetwork(networkInfo.name);
+                }
+            } catch (error) {
+                console.error('Error fetching wallet details:', error);
             // Show relevant network name even if the RPC call fails
             setNetwork(selectedChain.chainName);
 
@@ -1148,7 +1148,7 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                         setBalance('0.0');
                 }
             }
-        } finally {
+            } finally {
             setIsUpdatingBalance(false);
         }
     };
@@ -1388,75 +1388,75 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
 
                 {selectedTab === "wallet" ? (
                     <>
-                        {/* Wallet Card */}
-                        <Card hoverable css={{ marginBottom: '$5' }}>
-                            <CardContent css={{ padding: '$5' }}>
-                                <Flex justify="between" css={{ marginBottom: '$3' }}>
-                                    <Flex gap="2">
-                                        <Globe size={18} color="var(--colors-primary)" />
-                                        <Text weight="medium">{selectedChain.currencySymbol}</Text>
-                                    </Flex>
+                {/* Wallet Card */}
+                <Card hoverable css={{ marginBottom: '$5' }}>
+                    <CardContent css={{ padding: '$5' }}>
+                        <Flex justify="between" css={{ marginBottom: '$3' }}>
+                            <Flex gap="2">
+                                <Globe size={18} color="var(--colors-primary)" />
+                                <Text weight="medium">{selectedChain.currencySymbol}</Text>
+                            </Flex>
 
-                                    <Button variant="text" onClick={() => setShowNetworkModal(true)} css={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '$1',
-                                        borderRadius: '$pill',
-                                    }}>
-                                        <Share2 size={12} />
-                                        <span>{network}</span>
-                                    </Button>
-                                </Flex>
+                            <Button variant="text" onClick={() => setShowNetworkModal(true)} css={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '$1',
+                                borderRadius: '$pill',
+                            }}>
+                                <Share2 size={12} />
+                                <span>{network}</span>
+                            </Button>
+                        </Flex>
 
-                                <Text size="xxl" weight="bold" color="primary" css={{ marginBottom: '$3' }}>
+                        <Text size="xxl" weight="bold" color="primary" css={{ marginBottom: '$3' }}>
                                     {isUpdatingBalance ? (
-                                        <Flex gap="2">
-                                            <LoadingIndicator />
-                                            <Text size="md">Loading...</Text>
-                                        </Flex>
-                                    ) : (
-                                        `${parseFloat(balance).toFixed(4)} ${selectedChain.currencySymbol}`
-                                    )}
-                                </Text>
-
-                                <Flex justify="between">
-                                    <Text ellipsis css={{ maxWidth: '80%' }}>
-                                        {formatAddress(wallet.address)}
-                                    </Text>
-
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="icon"
-                                                    onClick={handleCopyAddress}
-                                                >
-                                                    <Copy size={14} />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Copy address</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
+                                <Flex gap="2">
+                                    <LoadingIndicator />
+                                    <Text size="md">Loading...</Text>
                                 </Flex>
+                            ) : (
+                                `${parseFloat(balance).toFixed(4)} ${selectedChain.currencySymbol}`
+                            )}
+                        </Text>
+
+                        <Flex justify="between">
+                            <Text ellipsis css={{ maxWidth: '80%' }}>
+                                {formatAddress(wallet.address)}
+                            </Text>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="icon"
+                                                    onClick={handleCopyAddress}
+                                        >
+                                            <Copy size={14} />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Copy address</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </Flex>
 
                                 {copyStatus === 'Address copied!' && (
-                                    <Text size="xs" color="success" css={{ marginTop: '$1' }}>
-                                        Address copied to clipboard!
-                                    </Text>
-                                )}
-                            </CardContent>
-                        </Card>
+                            <Text size="xs" color="success" css={{ marginTop: '$1' }}>
+                                Address copied to clipboard!
+                            </Text>
+                        )}
+                    </CardContent>
+                </Card>
 
-                        {/* Action Buttons */}
+                {/* Action Buttons */}
                         <Flex justify="between" gap="3" css={{ marginBottom: '$4' }}>
-                            <Button
+                    <Button
                                 variant="outline"
                                 onClick={() => setShowSendTransaction(true)}
-                                css={{
-                                    flex: 1,
-                                    padding: '$3',
-                                    gap: '$2',
-                                    transition: 'all 0.2s ease-in-out',
+                        css={{
+                            flex: 1,
+                            padding: '$3',
+                            gap: '$2',
+                            transition: 'all 0.2s ease-in-out',
                                     backgroundColor: '$primary',
                                     borderColor: '$primary',
                                     color: 'white',
@@ -1464,70 +1464,70 @@ function Dashboard({ wallet, onLogout, pendingRequest, onRequestComplete }) {
                                         transform: 'scale(1.02)',
                                         backgroundColor: '$primaryHover'
                                     }
-                                }}
-                            >
-                                <ArrowRightLeft size={16} />
-                                <span>Send</span>
-                            </Button>
+                        }}
+                    >
+                        <ArrowRightLeft size={16} />
+                        <span>Send</span>
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                                onClick={() => setShowReceiveDrawer(true)}
+                        css={{
+                            flex: 1,
+                            padding: '$3',
+                            gap: '$2',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': { transform: 'scale(1.02)' }
+                        }}
+                    >
+                        <QrCode size={16} />
+                        <span>Receive</span>
+                    </Button>
+                </Flex>
+
+                {/* Network Card */}
+                        <Card hoverable css={{ marginBottom: '$5' }}>
+                    <CardHeader>
+                        <Flex justify="between">
+                            <Flex gap="2">
+                                <Share2 size={16} color="var(--colors-primary)" />
+                                <Heading size="sm">Network</Heading>
+                            </Flex>
 
                             <Button
-                                variant="outline"
-                                onClick={() => setShowReceiveDrawer(true)}
+                                variant="text"
+                                onClick={() => setShowNetworkModal(true)}
                                 css={{
-                                    flex: 1,
-                                    padding: '$3',
-                                    gap: '$2',
-                                    transition: 'all 0.2s ease-in-out',
-                                    '&:hover': { transform: 'scale(1.02)' }
-                                }}
-                            >
-                                <QrCode size={16} />
-                                <span>Receive</span>
-                            </Button>
-                        </Flex>
-
-                        {/* Network Card */}
-                        <Card hoverable css={{ marginBottom: '$5' }}>
-                            <CardHeader>
-                                <Flex justify="between">
-                                    <Flex gap="2">
-                                        <Share2 size={16} color="var(--colors-primary)" />
-                                        <Heading size="sm">Network</Heading>
-                                    </Flex>
-
-                                    <Button
-                                        variant="text"
-                                        onClick={() => setShowNetworkModal(true)}
-                                        css={{
-                                            border: '1px solid $primary',
+                                    border: '1px solid $primary',
                                             fontSize: '12px',
                                             padding: '4px 8px'
-                                        }}
-                                    >
-                                        Change
-                                    </Button>
-                                </Flex>
-                            </CardHeader>
+                                }}
+                            >
+                                Change
+                            </Button>
+                        </Flex>
+                    </CardHeader>
 
                             <CardContent css={{ padding: '12px' }}>
                                 <Flex justify="between" align="center">
                                     <Flex gap="2">
                                         <AvatarStyled size="sm">
                                             <Globe size={16} />
-                                        </AvatarStyled>
+                                </AvatarStyled>
 
-                                        <div>
-                                            <Text weight="medium">{selectedChain.chainName}</Text>
-                                            <Text size="xs" color="muted">
-                                                {selectedChain.chainType}
-                                            </Text>
-                                        </div>
-                                    </Flex>
+                                <div>
+                                    <Text weight="medium">{selectedChain.chainName}</Text>
+                                    <Text size="xs" color="muted">
+                                        {selectedChain.chainType}
+                                    </Text>
+                                </div>
+                            </Flex>
 
                                     <Badge css={{ fontSize: '11px', padding: '2px 8px' }}>{selectedChain.currencySymbol}</Badge>
-                                </Flex>
-                            </CardContent>
-                        </Card>
+                        </Flex>
+                    </CardContent>
+                </Card>
                     </>
                 ) : (
                     <TransactionsSection wallet={wallet} selectedChain={selectedChain} />
